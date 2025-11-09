@@ -1,0 +1,306 @@
+package main
+
+import (
+	"fmt"
+	"log"
+	"os"
+	"runtime"
+	"time"
+	"github.com/gdamore/tcell/v2"
+)
+
+var MOVES_PER_TICK int
+var LastInputT time.Time
+const SIM_TIME = time.Duration(time.Millisecond * 16)
+
+
+func main() {
+							/* INIT */
+	SIM_FRAME = 0
+	snakes := make([]*Snake, 2)
+	stylesInit()
+	boardInit(&board)
+	scr, err := tcell.NewScreen()
+	F(err, "")
+	err = scr.Init()
+	F(err, "")
+	defStyle := tcell.StyleDefault.Background(tcell.ColorBlack).Foreground(tcell.ColorBlack)
+	scr.SetStyle(defStyle)
+
+	rollbackBuffer := RollbackBuffer{}
+							/* INIT */
+
+
+	snakes[0] = snakeMake(Vec2{10, 10}, R)
+	snakes[1] = snakeMake(Vec2{3, 3}, L)
+
+
+	go readInputs(scr, snakes, 0)
+	// Here well have "go readPeer()" or something
+	simTick := time.NewTicker(SIM_TIME)
+
+
+	DrawPixelBox(scr, 2, 2, MapW - 1, MapH/2 - 1, tcell.ColorBlue)
+
+	avgSimT := makeAverageDurationBuffer(100)
+	startT := time.Now()
+
+	debugBox = DrawMessages(scr, MapW + 5, 4, 30, 30, true)
+
+	var _dMicroSec int64 = 0
+	
+
+	go func () {
+		for {
+			debugBox(fmt.Sprintf("Frame Time:\t[%.2f]", float64(_dMicroSec)/1000), 0, 0)
+			debugBox(fmt.Sprintf("sim_frame:\t%5d", SIM_FRAME), 0, 1)
+			//debugBox(fmt.Sprintf("MPT:\t\t%2d(%.2f)", MOVES_PER_TICK, float64(snakes[0].scpt) / float64(SUBCELL_SIZE)), 0, 2)
+			//debugBox(fmt.Sprintf("SCPT:\t\t%3d", snakes[0].scpt), 0, 3)
+			time.Sleep(time.Millisecond * 100)
+		}
+	} ()
+
+	// qwfploop
+	for {
+		startT = time.Now()
+		MOVES_PER_TICK = 0
+
+		<-simTick.C
+		// Packets come in, read them asap
+		if SIM_FRAME == 205 {
+			ROLLBACK = true
+		}
+		// Check for corrections
+		if ROLLBACK {
+			ROLLBACK = false
+			rollbackBuffer.resimFramesWithNewInputs(200,
+				[]input{iRight, },
+				&board, snakes)
+			debugBox(fmt.Sprintf("current frame: %d", SIM_FRAME), 0, 4)
+		}
+		// and resimulate
+		updateLogic(snakes)
+		// Capture current state
+		rollbackBuffer.pushFrame(copyCurrentGameState(&board, snakes, SIM_FRAME))
+		SIM_FRAME++
+		_dMicroSec = avgSimT(time.Since(startT))
+		render(scr, 2, 2)
+	}
+}
+
+
+// This function should not be aware of input sources
+// Could be local user, multiplayer peer, bot
+// This only updates the snake state.
+// We'll see how this works out (input validation based on board state?)
+func updateLogic(snakes []*Snake) {
+
+	for _, s := range snakes {
+		subcellBudget := s.scpt - s.subcellDebt
+		//debugBox2(fmt.Sprintf("subcellBudget:\t[%2d]", subcellBudget), 0, 1)
+		//debugBox2(fmt.Sprintf("scpt[%3d]-debt[%3d]", s.scpt, s.subcellDebt), 0, 2)
+
+		for {
+			if subcellBudget <= 0 {
+				s.subcellDebt = AbsInt16(subcellBudget)
+				break
+			}
+
+			controlSnake(s)
+
+			//if s.halving {
+			//	s.half()
+			//}
+
+			//tailCell := cellGet(&board, s.tail.pos)
+			cellSet(&board, s.pos, Empty, Empty)
+			//cellSet(&board, s.tail.pos, Empty, Empty)
+
+			//if tailCell.state == P1Food {
+			//	s.grow()
+			//	tailCell.state = Empty
+			//} else {
+			s.move()
+			//}
+
+			//headCell := cellGet(&board, s.head.pos)
+			//if headCell.state == Portal {
+			//	tailPos := s.tail.pos
+			//	s.port(headCell.connection)
+			//	cellSet(&board, tailPos, Empty, Empty)
+			//	headCell = cellGet(&board, s.head.pos)
+			//}
+
+			//if headCell.state == P1Body {
+			//	s.eatSelf()
+			//	cellSet(&board, s.head.pos, Empty, Empty)
+			//}
+
+			cellSet(&board, s.pos, P1Head, P1Head)
+			//cellSet(&board, s.tail.pos, P1Tail, P1Tail)
+			//debugBox2(fmt.Sprintf("len:%2d\t", s.length), 0, 0)
+
+			subcellBudget -= SUBCELL_SIZE
+			MOVES_PER_TICK++
+		}
+	}
+}
+
+
+func render(s tcell.Screen, xOffset, yOffset int) {
+	// s.Clear()
+	// For each terminal row (board y-coordinates map 2:1 onto terminal y-coordinates)
+	for y := range (MapH / 2) {
+		lyUpper := y * 2           // Calculate corresponding Logical Row, given Terminal Row
+		lyLower := y * 2 + 1
+
+		// For each terminal cell (board x-coordinates map 1:1 onto terminal y-coordinates)
+		for x := range MapW {
+			upper := cols[board[lyUpper][x].col]
+			lower := cols[board[lyLower][x].col]
+
+			r := ' '
+			style := tcell.StyleDefault
+
+			// Blend the two 'styles'
+			// take foreground color of each logical cell
+			// set foreground of rune to upper color
+			// set background of rune to lower color 
+			// half-block ▀ displays top color (fg) and bottom color (bg) in one cell
+			switch {
+			case upper != tcell.StyleDefault && lower != tcell.StyleDefault:
+				fg, _, _ := upper.Decompose()
+				bg, _, _ := lower.Decompose()
+				blend := tcell.StyleDefault.Foreground(fg).Background(bg)
+				r, style = '▀', blend
+
+			case upper != tcell.StyleDefault:
+				r, style = '▀', upper
+
+			case lower != tcell.StyleDefault:
+				r, style = '▄', lower
+			}
+
+			s.SetContent(x + xOffset, y + yOffset, r, nil, style)
+		}
+	}
+	s.Show()
+}
+
+// Collect all (local) input and send down a single channel
+func readInputs(scr tcell.Screen, s []*Snake, i int) {
+
+	for {
+		ev := scr.PollEvent()
+		if key, ok := ev.(*tcell.EventKey); ok {
+
+			if key.Key() == tcell.KeyESC {
+				scr.Fini()
+				os.Exit(0)
+			} 
+
+			// Keymap
+			switch key.Rune() {
+			case '6':
+				COPY_STATE = true
+			case '7':
+				LOAD_STATE = true
+			case 'x':
+				s[i].addInput(iLeft) 
+			case 'd':
+				s[i].addInput(iRight) 
+			}
+		} 
+	}
+
+}
+
+
+func controlSnake(s *Snake) {
+	input, ok := s.popInput()
+	if ok {
+		switch input {
+		case iRight:
+			s.dir = R
+
+		case iLeft:
+			s.dir = L
+
+		}
+	}
+
+}
+
+
+func boardInit(board *[MapH+1][MapW+1]Cell) {
+	for y := range MapH {
+		for x := range MapW {
+			//board[y][x].col = tcell.StyleDefault
+			board[y][x].state = Empty
+		}
+	}
+}
+
+// Why do we use cellstate for state and color?
+// Maybe I need to have separate the color info.
+// Hasn't happened yet but maybe surely someday
+func cellSet(board *[MapH+1][MapW+1]Cell, vec Vec2, newState cellState, newCol cellState) {
+	switch board[vec.y][vec.x].state {
+	default: 
+		board[vec.y][vec.x].state = newState
+		board[vec.y][vec.x].col   = newCol
+	}
+
+}
+
+func cellGet(board *[MapH+1][MapW+1]Cell, vec Vec2) *Cell {
+	return &board[vec.y][vec.x]
+}
+
+
+func stylesInit() {
+	ColEmpty   = tcell.StyleDefault.Foreground(tcell.ColorBlack      ).Background(tcell.ColorBlack)
+	ColP1Head  = tcell.StyleDefault.Foreground(tcell.ColorGreen      ).Background(tcell.ColorBlack)
+	ColP2Head  = tcell.StyleDefault.Foreground(tcell.ColorGreen      ).Background(tcell.ColorBlack)
+	ColDefault = tcell.StyleDefault.Foreground(tcell.ColorWhite      ).Background(tcell.ColorBlack)
+
+	cols = map[cellState]tcell.Style{
+		Empty  : ColEmpty  ,
+
+		P1Head : ColP1Head ,
+
+		P2Head : ColP2Head ,
+	}
+
+}
+
+
+func snakeMake(start Vec2, d direction) *Snake{
+
+	inputQ := make([]input, 0, 4)
+	snake := &Snake{
+		pos: start,
+		dir: d,
+		scpt: 8,
+		subcellDebt: 0,
+		inputQ: inputQ,
+	}
+
+	return snake
+}
+
+
+func E(err error, msg string) {
+	if err != nil {
+		_, _, line, _ := runtime.Caller(1)
+		log.Printf("%s at line[%d]: %v\n", msg, err, line)
+	}
+}
+
+func F(err error, msg string) {
+	if err != nil {
+		_, _, line, _ := runtime.Caller(1)
+		log.Fatalf("%s at line[%d]: %v\n", msg, err, line)
+	}
+}
+
