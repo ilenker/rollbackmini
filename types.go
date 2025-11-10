@@ -102,6 +102,7 @@ const (
 	Empty cellState = iota
 	P1Head
 	P2Head
+	Wall
 )
 
 var cols map[cellState]tcell.Style
@@ -114,7 +115,7 @@ func assert(a any, b any, aName, bName string) {
 
 
 const MapH = 20
-const MapW = 20
+const MapW = 20 * 3
 
 const SUBCELL_SIZE = 32
 
@@ -130,4 +131,3 @@ var inputName = map[input]string {
 	iRight: "right",
 	iLeft:  "left",
 }
-

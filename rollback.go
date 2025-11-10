@@ -83,6 +83,7 @@ func (rbb *RollbackBuffer) pushFrame(frame FrameData) {
 // So we go to that frame, resim *everything* from there onwards.
 func (rbb *RollbackBuffer) resimFramesWithNewInputs(frameID uint32, inputQ []input, b *[MapH+1][MapW+1]Cell, snakes []*Snake) {
 
+	debugBox("\\clr")
 	rollbackFrame := FrameData{}
 	resimFromBufferIdx := 0
 
@@ -110,8 +111,9 @@ func (rbb *RollbackBuffer) resimFramesWithNewInputs(frameID uint32, inputQ []inp
 	i_ := 0
 	for {
 		// Get handle on current frames local inputs
-		localInputs := rbb.frames[i % RB_BUFFER_LEN].snakesData[LOCAL].inputQ
-		snakes[LOCAL].inputQ = localInputs
+		//localInputs := rbb.frames[i % RB_BUFFER_LEN].snakesData[LOCAL].inputQ
+		//snakes[LOCAL].inputQ = localInputs
+		snakes[LOCAL] = rbb.frames[i % RB_BUFFER_LEN].snakesData[LOCAL]
 
 		// Resim with new inputs
 		updateLogic(snakes)

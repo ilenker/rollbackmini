@@ -7,16 +7,19 @@ import (
 	"runtime"
 	"time"
 	"github.com/gdamore/tcell/v2"
+	"math/rand"
 )
 
 var MOVES_PER_TICK int
 var LastInputT time.Time
 const SIM_TIME = time.Duration(time.Millisecond * 16)
-const SCPT = 8
+const SCPT = 64
 const RB_BUFFER_LEN = 15
 
 var scr tcell.Screen
 var err error
+var lBorder = (MapW / 2) - 5
+var rBorder = (MapW / 2) + 5
 
 const LOCAL = 0
 const PEER  = 1
@@ -38,9 +41,15 @@ func main() {
 							/*##############*/
 
 
-	snakes[LOCAL] = snakeMake(Vec2{0, 8}, R)
+	snakes[LOCAL] = snakeMake(Vec2{MapW/2, 8}, R)
 	snakes[PEER ] = snakeMake(Vec2{0,  5}, R)
 	localInputCh := make(chan input, 8)
+
+	snakes[LOCAL].scpt = 32
+	snakes[PEER ].scpt = 16
+
+	board[MapH/2][rBorder].col = Wall
+	board[MapH/2][lBorder].col = Wall
 
 	go readInputs(scr, localInputCh)
 
@@ -50,17 +59,18 @@ func main() {
 
 	DrawPixelBox(scr, 2, 2, MapW - 1, MapH/2 - 1, tcell.ColorBlue)
 
-	avgSimT := makeAverageDurationBuffer(100)
-	startT := time.Now()
+	//avgSimT := makeAverageDurationBuffer(100)
+	//startT := time.Now()
 
 	debugBox = DrawMessages(scr, MapW + 5, 4, 30, 30, true)
 
-	var _dMicroSec int64 = 0
-	
+	//var _dMicroSec int64 = 0
+	rollbackSize := 0 
 
-	foo := func () {
+	debugPrint := func () {
 		{
-			debugBox(fmt.Sprintf("Frame Time:\t[%.2f]", float64(_dMicroSec)/1000), 0, 0)
+			//debugBox(fmt.Sprintf("Frame Time:\t[%.2f]", float64(_dMicroSec)/1000), 0, 0)
+			debugBox(fmt.Sprintf("Rollback Size:\t[%2d]", rollbackSize), 0, 0)
 			debugBox(fmt.Sprintf("sim_frame:\t%5d", SIM_FRAME), 0, 1)
 			//debugBox(fmt.Sprintf("MPT:\t\t%2d(%.2f)", MOVES_PER_TICK, float64(snakes[0].scpt) / float64(SUBCELL_SIZE)), 0, 2)
 			//debugBox(fmt.Sprintf("SCPT:\t\t%3d", snakes[0].scpt), 0, 3)
@@ -70,31 +80,50 @@ func main() {
 
 	// qwfploop
 	for {
-		startT = time.Now()
+		//startT = time.Now()
 		MOVES_PER_TICK = 0
 		<-simTick.C
-		//scr.PollEvent()
 
-
-		drainInputChToSnake(localInputCh, snakes, LOCAL)
-
-		
-		if SIM_FRAME == 100 {
-
-			rollbackBuffer.resimFramesWithNewInputs(85,
-				[]input{iLeft},
-				&board, snakes)
+		if SIM_FRAME > RB_BUFFER_LEN {
 			
+			if SIM_FRAME % 10 == 0 {
+				
+				rollbackSize = 1 + rand.Intn(RB_BUFFER_LEN)
+
+				var q []input = make([]input, 4)
+				ilen := rand.Intn(3)
+				for i := range ilen {
+					q[i] = input(1 + rand.Intn(3))
+				}
+
+				rollbackBuffer.resimFramesWithNewInputs(SIM_FRAME - uint32(rollbackSize),
+					q,
+					&board, snakes)
+			}
+
 		}
+
+		if snakes[LOCAL].pos.x >= rBorder {
+			localInputCh <-iLeft
+		}
+		if snakes[LOCAL].pos.x <= lBorder {
+			localInputCh <-iRight
+		}
+		drainInputChToSnake(localInputCh, snakes, LOCAL)
 
 		rollbackBuffer.pushFrame(copyCurrentFrameData(&board, snakes, SIM_FRAME))
 
 		updateLogic(snakes)
 
 		SIM_FRAME++
-		_dMicroSec = avgSimT(time.Since(startT))
-		foo()
+		//_dMicroSec = avgSimT(time.Since(startT))
+		debugPrint()
 		render(scr, 2, 2)
+
+		if snakes[LOCAL].pos.x > rBorder ||
+			snakes[LOCAL].pos.x < lBorder {
+			scr.PollEvent()
+		}
 
 	}
 }
@@ -200,7 +229,7 @@ func render(s tcell.Screen, xOffset, yOffset int) {
 	}
 
 	for i := range 20 {
-		s.SetContent(2+i, 5, rune(((i+1) % 10)+48), nil, ColDefault)
+		s.SetContent(2+i, MapH, rune(((i+1) % 10)+48), nil, ColDefault)
 	}
 
 	s.Show()
@@ -305,7 +334,7 @@ func stylesInit() {
 	ColEmpty   = tcell.StyleDefault.Foreground(tcell.ColorBlack      ).Background(tcell.ColorBlack)
 	ColP1Head  = tcell.StyleDefault.Foreground(tcell.ColorGreen      ).Background(tcell.ColorBlack)
 	ColP2Head  = tcell.StyleDefault.Foreground(tcell.ColorGreen      ).Background(tcell.ColorBlack)
-	ColDefault = tcell.StyleDefault.Foreground(tcell.ColorWhite      ).Background(tcell.ColorBlack)
+	ColDefault = tcell.StyleDefault.Foreground(tcell.ColorOrange     ).Background(tcell.ColorBlack)
 
 	cols = map[cellState]tcell.Style{
 		Empty  : ColEmpty  ,
@@ -313,6 +342,8 @@ func stylesInit() {
 		P1Head : ColP1Head ,
 
 		P2Head : ColP2Head ,
+
+		Wall   : ColDefault,
 	}
 
 }

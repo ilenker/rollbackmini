@@ -9,13 +9,22 @@ import (
 // Overrides the internal cursor position
 func DrawMessages(scr tcell.Screen, xOrigin, yOrigin, width, height int, drawBox bool) func(msg string, xy ...int) {
 	x, y, w, h := xOrigin, yOrigin, width, height
-	xO, _ := xOrigin, yOrigin
+	xO, yO := xOrigin, yOrigin
 
 	if drawBox {
 		DrawRoundBox(scr, xOrigin, yOrigin, width, height, tcell.NewHexColor(0xFFFFFF))
 	}
 
 	return func(msg string, args ...int) {
+		if msg == "\\clr" {
+			for i := range h {
+				for j := range w {
+					scr.SetContent(xO + j, yO + i, ' ', nil, ColDefault)
+				}
+			}	
+			return
+		}
+
 		if len(args) > 1 {
 			x = (xOrigin + args[0]) % (w + xOrigin)
 			y = (yOrigin + args[1]) % (h + yOrigin)
