@@ -12,15 +12,22 @@ import (
 var MOVES_PER_TICK int
 var LastInputT time.Time
 const SIM_TIME = time.Duration(time.Millisecond * 16)
+const SCPT = 8
+const RB_BUFFER_LEN = 15
 
+var scr tcell.Screen
+var err error
+
+const LOCAL = 0
+const PEER  = 1
 
 func main() {
-							/* INIT */
+							/*#### INIT ####*/
 	SIM_FRAME = 0
 	snakes := make([]*Snake, 2)
 	stylesInit()
 	boardInit(&board)
-	scr, err := tcell.NewScreen()
+	scr, err = tcell.NewScreen()
 	F(err, "")
 	err = scr.Init()
 	F(err, "")
@@ -28,14 +35,15 @@ func main() {
 	scr.SetStyle(defStyle)
 
 	rollbackBuffer := RollbackBuffer{}
-							/* INIT */
+							/*##############*/
 
 
-	snakes[0] = snakeMake(Vec2{10, 10}, R)
-	snakes[1] = snakeMake(Vec2{3, 3}, L)
+	snakes[LOCAL] = snakeMake(Vec2{0, 8}, R)
+	snakes[PEER ] = snakeMake(Vec2{0,  5}, R)
+	localInputCh := make(chan input, 8)
 
+	go readInputs(scr, localInputCh)
 
-	go readInputs(scr, snakes, 0)
 	// Here well have "go readPeer()" or something
 	simTick := time.NewTicker(SIM_TIME)
 
@@ -50,41 +58,44 @@ func main() {
 	var _dMicroSec int64 = 0
 	
 
-	go func () {
-		for {
+	foo := func () {
+		{
 			debugBox(fmt.Sprintf("Frame Time:\t[%.2f]", float64(_dMicroSec)/1000), 0, 0)
 			debugBox(fmt.Sprintf("sim_frame:\t%5d", SIM_FRAME), 0, 1)
 			//debugBox(fmt.Sprintf("MPT:\t\t%2d(%.2f)", MOVES_PER_TICK, float64(snakes[0].scpt) / float64(SUBCELL_SIZE)), 0, 2)
 			//debugBox(fmt.Sprintf("SCPT:\t\t%3d", snakes[0].scpt), 0, 3)
-			time.Sleep(time.Millisecond * 100)
 		}
-	} ()
+	} 
+	render(scr, 2, 2)
 
 	// qwfploop
 	for {
 		startT = time.Now()
 		MOVES_PER_TICK = 0
-
 		<-simTick.C
-		// Packets come in, read them asap
-		if SIM_FRAME == 205 {
-			ROLLBACK = true
-		}
-		// Check for corrections
-		if ROLLBACK {
-			ROLLBACK = false
-			rollbackBuffer.resimFramesWithNewInputs(200,
-				[]input{iRight, },
+		//scr.PollEvent()
+
+
+		drainInputChToSnake(localInputCh, snakes, LOCAL)
+
+		
+		if SIM_FRAME == 100 {
+
+			rollbackBuffer.resimFramesWithNewInputs(85,
+				[]input{iLeft},
 				&board, snakes)
-			debugBox(fmt.Sprintf("current frame: %d", SIM_FRAME), 0, 4)
+			
 		}
-		// and resimulate
+
+		rollbackBuffer.pushFrame(copyCurrentFrameData(&board, snakes, SIM_FRAME))
+
 		updateLogic(snakes)
-		// Capture current state
-		rollbackBuffer.pushFrame(copyCurrentGameState(&board, snakes, SIM_FRAME))
+
 		SIM_FRAME++
 		_dMicroSec = avgSimT(time.Since(startT))
+		foo()
 		render(scr, 2, 2)
+
 	}
 }
 
@@ -106,6 +117,9 @@ func updateLogic(snakes []*Snake) {
 				break
 			}
 
+			// Here we pop from the input queue
+			// If our scpt is greater than the subcell size
+			// Then we may pop more than one input per simtick.
 			controlSnake(s)
 
 			//if s.halving {
@@ -184,11 +198,17 @@ func render(s tcell.Screen, xOffset, yOffset int) {
 			s.SetContent(x + xOffset, y + yOffset, r, nil, style)
 		}
 	}
+
+	for i := range 20 {
+		s.SetContent(2+i, 5, rune(((i+1) % 10)+48), nil, ColDefault)
+	}
+
 	s.Show()
 }
 
+
 // Collect all (local) input and send down a single channel
-func readInputs(scr tcell.Screen, s []*Snake, i int) {
+func readInputs(scr tcell.Screen, inputCh chan input) {
 
 	for {
 		ev := scr.PollEvent()
@@ -201,17 +221,40 @@ func readInputs(scr tcell.Screen, s []*Snake, i int) {
 
 			// Keymap
 			switch key.Rune() {
-			case '6':
-				COPY_STATE = true
-			case '7':
-				LOAD_STATE = true
+
+
+				// "WASD"
 			case 'x':
-				s[i].addInput(iLeft) 
+				inputCh <-iLeft
 			case 'd':
-				s[i].addInput(iRight) 
+				inputCh <-iRight
+			case 'f':
+				inputCh <-iRight
+				inputCh <-iLeft
+				inputCh <-iRight
+				inputCh <-iLeft
+
 			}
 		} 
 	}
+
+}
+
+func drainInputChToSnake(inputCh chan input, s []*Snake, snakeID int) {
+	full := false
+
+	for {
+		if full {
+			return
+		}
+
+		select {
+		case input := <-inputCh:
+			full = s[snakeID].tryInput(input) 
+		default:
+			return
+		}
+	} 
 
 }
 
@@ -281,7 +324,7 @@ func snakeMake(start Vec2, d direction) *Snake{
 	snake := &Snake{
 		pos: start,
 		dir: d,
-		scpt: 8,
+		scpt: SCPT,
 		subcellDebt: 0,
 		inputQ: inputQ,
 	}
@@ -299,8 +342,7 @@ func E(err error, msg string) {
 
 func F(err error, msg string) {
 	if err != nil {
-		_, _, line, _ := runtime.Caller(1)
-		log.Fatalf("%s at line[%d]: %v\n", msg, err, line)
+		log.Fatalf("%s: %v\n", msg, err)
 	}
 }
 

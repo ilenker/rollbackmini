@@ -2,34 +2,35 @@ package main
 
 import (
 	"fmt"
+	//"github.com/gdamore/tcell/v2"
 )
 
 var COPY_STATE = false
 var LOAD_STATE = false
 
 
-type GameState struct {
-	frame uint32
+type FrameData struct {
+	id uint32
 	board [MapH+1][MapW+1]Cell
 	snakesData []*Snake
 }
 
-const RB_BUFFER_LEN = 20
 
 type RollbackBuffer struct {
-	frames [RB_BUFFER_LEN]GameState
-	index int
-	latestFrame uint32
+	frames [RB_BUFFER_LEN]FrameData
+	idxLatest int
+	latestFrameID uint32
 }
 
-func (r *RollbackBuffer) pushFrame(gs GameState) {
-	debugBox(fmt.Sprintf("%x", r.index), 1 + r.index, 2)
-	if r.index == 0 { debugBox("                ", r.index, 3) }
-	debugBox(" ^", r.index, 3)
 
-	r.index = wrapInt(r.index + 1, RB_BUFFER_LEN)
-	r.frames[r.index] = gs
-	r.latestFrame = gs.frame
+func (rbb *RollbackBuffer) pushFrame(frame FrameData) {
+	debugBox(fmt.Sprintf("%x", rbb.idxLatest), 1 + rbb.idxLatest, 2)
+	if rbb.idxLatest == 0 { debugBox("                ", rbb.idxLatest, 3) }
+	debugBox(" ^", rbb.idxLatest, 3)
+
+	rbb.idxLatest = (rbb.idxLatest + 1) % RB_BUFFER_LEN
+	rbb.frames[rbb.idxLatest] = frame
+	rbb.latestFrameID = frame.id
 }
 
 
@@ -73,87 +74,112 @@ func (r *RollbackBuffer) pushFrame(gs GameState) {
 	potentially causing non-deterministic outcomes?)
 */
 
-func (r *RollbackBuffer) rollBack(b *[MapH+1][MapW+1]Cell, snakes []*Snake, gs GameState) {
-	for i := range RB_BUFFER_LEN {
-		loadGameState(b, snakes, r.frames[wrapInt(1 + r.index + i, RB_BUFFER_LEN)])
-	}	
-}
+
+
 
 // We pass in the board and snakes to be modified.
 // This function will be called on *each packet* that comes in
 // that conflicts with "no_input"
 // So we go to that frame, resim *everything* from there onwards.
-func (r *RollbackBuffer) resimFramesWithNewInputs(frame uint32, inputQ []input, b *[MapH+1][MapW+1]Cell, snakes []*Snake) {
+func (rbb *RollbackBuffer) resimFramesWithNewInputs(frameID uint32, inputQ []input, b *[MapH+1][MapW+1]Cell, snakes []*Snake) {
 
-	rollbackFrame := GameState{}
-	resimFromIndex := 0
+	rollbackFrame := FrameData{}
+	resimFromBufferIdx := 0
 
+	// Search for the frame to be resimmed
 	for i := range RB_BUFFER_LEN {
 
-		// Start from frame after r.index (that is the oldest frame - right after latest)
-		idx := wrapInt(1 + r.index + i, RB_BUFFER_LEN)
-
-		if r.frames[idx].frame == frame {
-			rollbackFrame = r.frames[i] 
-			resimFromIndex = idx
+		if rbb.frames[i].id == frameID {
+			resimFromBufferIdx = i
+			rollbackFrame = rbb.frames[i]
 			break
 		}
 
 	}
 
 	// TODO: Figure out how this number will be determined
-	rollbackFrame.snakesData[1].inputQ = inputQ
+	rollbackFrame.snakesData[PEER].inputQ = inputQ
+	currentFrameID := rollbackFrame.id
 
+	loadFrameData(b, snakes, rollbackFrame)
 
-	// We are now at "frame 1001", resimming until "frame 1015" (current)
-	// Just in time for this frames logic update and rendering
-	// so we stop at "frame 1014" - the next frame after that would be the
-	// oldest frame in our buffer.
-	// rollbackFrame will have had it's contents modified already, just before this func call
-	loadGameState(b, snakes, rollbackFrame)
+	// Resim from rollbackFrame, until latest frame 
+	// Remember that in the main loop, we still have a sim step left.
+	// So we do not sim the latest gamestate in here.
+	i := resimFromBufferIdx
+	i_ := 0
+	for {
+		// Get handle on current frames local inputs
+		localInputs := rbb.frames[i % RB_BUFFER_LEN].snakesData[LOCAL].inputQ
+		snakes[LOCAL].inputQ = localInputs
 
-	// Resim all frames
-	for i := range RB_BUFFER_LEN {
-
-		idx := wrapInt(resimFromIndex + i, RB_BUFFER_LEN)
-
+		// Resim with new inputs
 		updateLogic(snakes)
-		r.frames[idx] = copyCurrentGameState(b, snakes, r.frames[idx].frame)
-		debugBox(fmt.Sprintf("%2d resim: %d", i, r.frames[idx].frame), 0, 5 + i)
+
+		rbb.frames[i % RB_BUFFER_LEN] = copyCurrentFrameData(&board, snakes, currentFrameID)
+
+		debugBox(fmt.Sprintf("lclInQ%v  (f:%d)",
+			rbb.frames[i % RB_BUFFER_LEN].snakesData[LOCAL].inputQ,
+			currentFrameID), 0, 4 + i_)
+
+
+		currentFrameID++
+		
+		if currentFrameID == rbb.latestFrameID + 1 {
+			i_++
+			return
+		}
+		i++
+		i_++
 	}
-
+		
 }
 
-	//loadGameState(b, snakes, r.frames[wrapInt(1 + r.index + i, RB_BUFFER_LEN)])
+		/*
 
-func (r *RollbackBuffer) rectifyGameState(gs *GameState, inputQ []input) {
+		"received at frame 2:  frame 0: left "
+		0 1 2                 3 4 5  *buffer full* 6 . . . . .
+drain   x x x                 x x x                x
+resim   - - x→ 0′→ 0″→ 1″→ 2″ - - -                -
+copy    x x    ┃   x   x   x  x x x                x
+		┌──────┘   ┃   ┃   ┃  ┃ ┃ ┃                ┃
+		0′1′       0″  1″  2″ 3′4′5′               6′1″2″3′4′5′
+sim		x x        x   x   x  x x x
+render  x x        -   -   x  x x x
+		drain inputs
+		resim
+		copy current state
+		sim (update)
+		render
+
+		*/
+
+
+func (rbb *RollbackBuffer) rectifyFrameData(fd *FrameData, inputQ []input) {
 }
 
 
-var GameStateSlot1 GameState
-
-func copyCurrentGameState(b *[MapH+1][MapW+1]Cell, snakes []*Snake, frame uint32) GameState {
+func copyCurrentFrameData(b *[MapH+1][MapW+1]Cell, snakes []*Snake, frameID uint32) FrameData {
 	snakesData := make([]*Snake, len(snakes), cap(snakes))
 
 	for i, snake := range snakes {
 		snakesData[i] = snakeCopy(snake)
 	}
 
-	savedGameState := GameState {
-		frame: frame,
+	savedFrameData := FrameData {
+		id: frameID,
 		board: *b,
 		snakesData: snakesData,
 	}
 
-	return savedGameState
+	return savedFrameData
 }
 
 
-func loadGameState(b *[MapH+1][MapW+1]Cell, snakes []*Snake, gs GameState) {
-	*b = gs.board	
-	for i := range snakes {
-		snakes[i] = snakeCopy(gs.snakesData[i])
-	}
+func loadFrameData(b *[MapH+1][MapW+1]Cell, snakes []*Snake, fd FrameData) {
+	*b = fd.board	
+	snakes[LOCAL] = snakeCopy(fd.snakesData[LOCAL])
+	snakes[PEER ] = snakeCopy(fd.snakesData[PEER ])
 }
 
 
@@ -166,4 +192,13 @@ func snakeCopy(src *Snake) *Snake {
 		inputQ: 	 src.inputQ,
 	}
 	return newSnake
+}
+
+
+  /* ##############################  Recycle bin  ############################## */
+
+func (rbb *RollbackBuffer) rollBack(b *[MapH+1][MapW+1]Cell, snakes []*Snake, fd FrameData) {
+	for i := range RB_BUFFER_LEN {
+		loadFrameData(b, snakes, rbb.frames[wrapInt(1 + rbb.idxLatest + i, RB_BUFFER_LEN)])
+	}	
 }

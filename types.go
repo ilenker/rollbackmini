@@ -80,11 +80,13 @@ func (s *Snake) popInput() (input, bool) {
 	return input, true
 } 
 
-func (s *Snake) addInput(inp input) {
+
+func (s *Snake) tryInput(inp input) bool {
 	if len(s.inputQ) >= 3 {
-		return
+		return true
 	}
 	s.inputQ = append(s.inputQ, inp)
+	return false
 }
 
 
@@ -105,9 +107,9 @@ const (
 var cols map[cellState]tcell.Style
 
 
-func assert(b bool, m string) {
-	if b { // Pass
-	} else { F(fmt.Errorf("assertion failed"), m) }
+func assert(a any, b any, aName, bName string) {
+	if a == b { // Pass
+	} else { F(fmt.Errorf("failed assertion: %s{%d} == %s{%d}", aName, a, bName, b), "") }
 }
 
 
@@ -120,7 +122,7 @@ var	board = [MapH+1][MapW+1]Cell{}
 
 var debugBox func(msg string, args ...int)
 
-var SIM_FRAME uint32
+var SIM_FRAME uint32 = 1
 
 var ROLLBACK bool
 
