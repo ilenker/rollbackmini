@@ -27,10 +27,9 @@ type PeerPacket struct {
 func multiplayer(inbound, outbound chan PeerPacket) {
 	version := "v0.1"
 
-	fmt.Println("====   Snakecycles P2P    ====")
+	fmt.Println("==== Rollback Microgame P2P ====")
 	fmt.Printf("                           %s   \n", version)
 	fmt.Println(" >> connecting to rendezvous")
-	fmt.Println("    please waiting          ")
 
 	// Rendezvous server address
 	rdvAddr := net.UDPAddr{
@@ -38,7 +37,7 @@ func multiplayer(inbound, outbound chan PeerPacket) {
 		Port: 55585,
 	}
 
-	Debug = true
+	Debug = false
 
 	localIP := GetOutboundIP()
 	laddr, err := net.ResolveUDPAddr("udp4", localIP.String() + ":0")

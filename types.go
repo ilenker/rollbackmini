@@ -6,6 +6,7 @@ import (
 )
 
 type cellState uint8
+type colorID uint8
 type direction uint8
 type input uint8
 
@@ -13,6 +14,7 @@ const (
 	iNone input = iota
 	iRight 
 	iLeft
+	iShot
 )
 
 const (
@@ -45,7 +47,7 @@ func (v1 Vec2) Add(v2 Vec2) Vec2 {
 
 
 type Cell struct {
-	col cellState
+	col colorID
 	state cellState 
 	connection Vec2
 }
@@ -56,6 +58,7 @@ type Snake struct {
 	scpt int16
 	subcellDebt int16
 	inputQ []input
+	stateID cellState
 }
 
 
@@ -91,12 +94,14 @@ func (s *Snake) tryInput(inp input) bool {
 
 
 var ColEmpty   tcell.Style
-
 var ColP1Head  tcell.Style
-
 var ColP2Head  tcell.Style
-
 var ColDefault tcell.Style
+
+var ColShot1C  tcell.Style
+var ColShot2C  tcell.Style
+var ColShot3C  tcell.Style
+var ColShot4C  tcell.Style
 
 const (
 	Empty cellState = iota
@@ -105,7 +110,19 @@ const (
 	Wall
 )
 
-var cols map[cellState]tcell.Style
+const (
+	EmptyC colorID = iota
+	P1HeadC
+	P2HeadC
+	WallC
+
+	_Shot1C
+	_Shot2C
+	_Shot3C
+	_Shot4C
+)
+
+var cols map[colorID]tcell.Style
 
 
 func assert(a any, b any, aName, bName string) {
@@ -120,6 +137,8 @@ const MapW = 20 * 2
 const SUBCELL_SIZE = 32
 
 var	board = [MapH+1][MapW+1]Cell{}
+var snakes []*Snake
+
 
 var debugBox func(msg string, args ...int)
 var errorBox func(msg string, args ...int)

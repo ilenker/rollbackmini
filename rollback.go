@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 	//"github.com/gdamore/tcell/v2"
 )
 
@@ -25,9 +26,9 @@ type RollbackBuffer struct {
 
 func (rbb *RollbackBuffer) pushFrame(frame FrameData) {
 
-	debugBox(fmt.Sprintf("%x", rbb.idxLatest), 1 + rbb.idxLatest, 2)
-	if rbb.idxLatest == 0 { debugBox("                ", rbb.idxLatest, 3) }
-	debugBox(" ^", rbb.idxLatest, 3)
+	debugBox(fmt.Sprintf("%x", rbb.idxLatest), 1 + rbb.idxLatest, 3)
+	if rbb.idxLatest == 0 { debugBox("                ", rbb.idxLatest, 4) }
+	debugBox(" ^", rbb.idxLatest, 4)
 
 	rbb.idxLatest = (rbb.idxLatest + 1) % RB_BUFFER_LEN
 	rbb.frames[rbb.idxLatest] = frame
@@ -128,13 +129,15 @@ func (rbb *RollbackBuffer) resimFramesWithNewInputs(frameID uint16, inputQ []inp
 
 		rbb.frames[i % RB_BUFFER_LEN] = copyCurrentFrameData(&board, snakes, currentFrameID)
 
-		debugBox(fmt.Sprintf("lclInQ%v  (f:%d)",
-			rbb.frames[i % RB_BUFFER_LEN].snakesData[LOCAL].inputQ,
-			currentFrameID), 0, 4 + i_)
+		//debugBox(fmt.Sprintf("lclInQ%v  (f:%d)",
+		//	rbb.frames[i % RB_BUFFER_LEN].snakesData[LOCAL].inputQ,
+		//	currentFrameID), 0, 4 + i_)
+
 
 		currentFrameID++
 		
 		if currentFrameID == rbb.latestFrameID + 1 {
+			avgRollback = calcAvgRollback(time.Duration(i_) * SIM_TIME)
 			return
 		}
 
@@ -198,15 +201,9 @@ func snakeCopy(src *Snake) *Snake {
 		scpt:        src.scpt,
 		subcellDebt: src.subcellDebt,
 		inputQ: 	 src.inputQ,
+		stateID:	 src.stateID,
 	}
 	return newSnake
 }
 
 
-  /* ##############################  Recycle bin  ############################## */
-
-func (rbb *RollbackBuffer) rollBack(b *[MapH+1][MapW+1]Cell, snakes []*Snake, fd FrameData) {
-	for i := range RB_BUFFER_LEN {
-		loadFrameData(b, snakes, rbb.frames[wrapInt(1 + rbb.idxLatest + i, RB_BUFFER_LEN)])
-	}	
-}
