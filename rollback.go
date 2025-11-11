@@ -115,12 +115,12 @@ func (rbb *RollbackBuffer) resimFramesWithNewInputs(frameID uint16, inputQ []inp
 	loadFrameData(b, snakes, rollbackFrame)
 
 	// Resim from rollbackFrame, until latest frame 
-	// Remember that in the main loop, we still have a sim step left.
-	// So we do not sim the latest gamestate in here.
 	i := resimFromBufferIdx
 	i_ := 0
 	for {
+
 		// Load saved state for local player from rollback frame
+		// This is the only info we take from a frame other than the correction frame.
 		snakes[LOCAL] = rbb.frames[i % RB_BUFFER_LEN].snakesData[LOCAL]
 
 		// Resim with new inputs

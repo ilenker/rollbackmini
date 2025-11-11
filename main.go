@@ -104,6 +104,10 @@ func main() {
 				continue
 			}
 
+			if pP.inputQ[0] == iNone {
+				goto correctPrediction
+			}
+
 			inputQ := []input{
 				pP.inputQ[0],
 				pP.inputQ[1],
@@ -116,7 +120,10 @@ func main() {
 			rollbackSize = SIM_FRAME - pP.frameID
 
 		default:
+
 		}
+
+		correctPrediction:
 
 		// Load up local snake's input queue 
 		drainInputChToSnake(localInputCh, snakes, LOCAL)
