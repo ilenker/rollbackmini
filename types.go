@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -43,6 +44,24 @@ func (v1 Vec2) Add(v2 Vec2) Vec2 {
 		newX,
 		newY,
 	}
+}
+
+func (v1 Vec2) AddNoWrap(v2 Vec2) Vec2 {
+	return Vec2{
+		x: v1.x + v2.x,
+		y: v1.y + v2.y,
+	}
+}
+
+func (v1 Vec2) Translate(angleRad float64, distance float64) Vec2 {
+    
+    dx := distance * math.Cos(angleRad)
+    dy := distance * math.Sin(angleRad)
+    
+    newX := v1.x + int(math.Round(dx))
+    newY := v1.y + int(math.Round(dy))
+    
+    return Vec2{x: newX, y: newY}
 }
 
 
@@ -144,6 +163,7 @@ var debugBox func(msg string, args ...int)
 var errorBox func(msg string, args ...int)
 
 var SIM_FRAME uint16 = 1
+var RESIM_FRAME uint16 = 1
 
 var ROLLBACK bool
 

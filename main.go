@@ -6,22 +6,23 @@ import (
 	"os"
 	"runtime"
 	"time"
+	"math/rand"
 	"github.com/gdamore/tcell/v2"
 )
 
 var MOVES_PER_TICK int
 var LastInputT time.Time
-const SIM_TIME = time.Duration(time.Millisecond * 16)
+var SIM_TIME time.Duration
 const SCPT = 64
 const RB_BUFFER_LEN = 15
 
 var FrameSyncCh chan bool
-var online = true
+var online = false
 
 var scr tcell.Screen
 var err error
-var calcAvgRollback func(time.Duration) int64 
-var avgRollback int64 = 0
+var calcAvgRollback func(int) float64
+var avgRollback float64 = 0
 
 const PLAYER_1  = 0
 const PLAYER_2  = 1
@@ -29,25 +30,32 @@ const PLAYER_2  = 1
 var LOCAL int
 var PEER  int
 
+var P1Score int = 0
+var P2Score int = 0
+
 func main() {
-	var inboundPacketCh chan PeerPacket
-	var outboundPacketCh chan PeerPacket
 
-	LOCAL = PLAYER_1
+							/*#### INIT ####*/
 
-	switch LOCAL {
+	config := loadConfig("config.json")
+
+	LOCAL = config.LocalPlayer
+	switch config.LocalPlayer {
 	case PLAYER_1:
 		PEER = PLAYER_2
 	case PLAYER_2:
 		PEER = PLAYER_1
 	}
-							/*#### INIT ####*/
+
+	SIM_TIME = time.Millisecond * time.Duration(config.SimulationSpeedMS)
 
 	SIM_FRAME = 0
 	snakes = make([]*Snake, 2)
 	stylesInit()
 	boardInit(&board)
 
+	var inboundPacketCh chan PeerPacket
+	var outboundPacketCh chan PeerPacket
 	if online {
 		inboundPacketCh = make(chan PeerPacket, 64)
 		outboundPacketCh = make(chan PeerPacket, 64)
@@ -56,50 +64,47 @@ func main() {
 		<-inboundPacketCh
 	}
 
-	scr, err = tcell.NewScreen()
-	F(err, "")
-	err = scr.Init()
-	F(err, "")
+	scr, err = tcell.NewScreen(); F(err, "")
+	err = scr.Init();             F(err, "")
+
 	defStyle := tcell.StyleDefault.Background(tcell.ColorBlack).Foreground(tcell.ColorBlack)
 	scr.SetStyle(defStyle)
 
 	rollbackBuffer := RollbackBuffer{}
-							/*##############*/
-
+	hitConfirms = make(map[uint16]HitConfirm)
 
 	// Board frame
 	DrawPixelBox(scr, 2, 2, MapW - 1, MapH/2 - 1, tcell.ColorBlue)
 	debugBox = DrawMessages(scr, MapW + 5 , 4, 30, 30, true)
 	errorBox = DrawMessages(scr, MapW + 37, 4, 15, 30, true)
 
-	snakes[PLAYER_1] = snakeMake(Vec2{MapW/2,  5 + MapH/2}, L, P1Head)
-	snakes[PLAYER_2] = snakeMake(Vec2{MapW/2, -5 + MapH/2}, R, P2Head)
+	snakes[PLAYER_1] = snakeMake(Vec2{(MapW/2)    ,  7 + MapH/2}, L, P1Head)
+	snakes[PLAYER_2] = snakeMake(Vec2{(MapW/2) , -8 + MapH/2}, R, P2Head)
 
-	snakes[PLAYER_1].scpt = 8
-	snakes[PLAYER_2].scpt = 8
+	snakes[PLAYER_1].scpt = int16(config.MoveSpeed)
+	snakes[PLAYER_2].scpt = int16(config.MoveSpeed)
 
 	localInputCh := make(chan input, 8)
 	go readLocalInputs(scr, localInputCh)
 
 	simTick := time.NewTicker(SIM_TIME)
 	avgSimT := makeAverageDurationBuffer(100)
-	calcAvgRollback = makeAverageDurationBuffer(50)
+	calcAvgRollback = makeAverageIntBuffer(50)
 	startT := time.Now()
 	FrameSyncCh = make(chan bool, 5)
 
 	var _dMicroSec int64 = 0
-	//var rollbackSize uint16 = 0 
 
 	debugPrint := func () {
 		{
 			debugBox(fmt.Sprintf("Frame Time:\t[%.2f]", float64(_dMicroSec)/1000), 0, 0)
-			debugBox(fmt.Sprintf("Avg Rollback:\t[%.2f]", float64(avgRollback)/1000), 0, 1)
+			debugBox(fmt.Sprintf("Avg Rollback Size:\t[%.2f]", avgRollback), 0, 1)
 			debugBox(fmt.Sprintf("sim_frame:\t%5d", SIM_FRAME), 0, 2)
-			//debugBox(fmt.Sprintf("MPT:\t\t%2d(%.2f)", MOVES_PER_TICK, float64(snakes[0].scpt) / float64(SUBCELL_SIZE)), 0, 2)
-			//debugBox(fmt.Sprintf("SCPT:\t\t%3d", snakes[0].scpt), 0, 3)
 		}
 	} 
 	render(scr, 2, 2)
+
+							/*##############*/
 
 	// qwfploop
 	for {
@@ -108,6 +113,10 @@ func main() {
 		<-simTick.C
 
 		// Rollback Check - if packet came in, resimulate
+
+		// When a packet comes in with a framenumber on which we did a shot
+		// we resimulate as usual - but this is where the hit-confirm happens.
+
 		select {
 		case pP := <-inboundPacketCh:
 			if pP.frameID == 6969 {
@@ -115,6 +124,14 @@ func main() {
 			}
 
 			if pP.inputQ[0] == iNone {
+				// If this pP.frameID is one where we "landed" a shot
+				// we can trigger the Hit Confirm sparks and increase score
+				confirm, ok := hitConfirms[pP.frameID]
+				if ok {
+					confirm.resimmed = true
+					confirm.hit = true
+					hitConfirms[pP.frameID] = confirm
+				}
 				goto correctPrediction
 			}
 
@@ -127,7 +144,6 @@ func main() {
 
 			// Multiple "updateLogic" calls in this function
 			rollbackBuffer.resimFramesWithNewInputs(pP.frameID, inputQ, &board, snakes)
-			//rollbackSize = SIM_FRAME - pP.frameID
 
 		default:
 
@@ -150,6 +166,20 @@ func main() {
 		// to create this state already - and we won't
 		// necessarily use every stored frame.
 		updateLogic(snakes)
+
+		for frame, confirm := range hitConfirms {
+			if confirm.hit {
+				go hitEffect(confirm.pos, 2 * rand.Float64())
+				go hitEffect(confirm.pos, 2 * rand.Float64())
+				go hitEffect(confirm.pos, 2 * rand.Float64())
+				go hitEffect(confirm.pos, 2 * rand.Float64())
+				delete(hitConfirms, frame)
+			} else {
+				if confirm.resimmed {
+					delete(hitConfirms, frame)
+				}
+			}
+		}
 
 		SIM_FRAME++
 		_dMicroSec = avgSimT(time.Since(startT))
@@ -238,75 +268,6 @@ func render(s tcell.Screen, xOffset, yOffset int) {
 }
 
 
-func beamEffect(start Vec2, end Vec2, dir Vec2) {
-
-	start = start.Add(dir)
-	pos := start
-	animLen := 10
-
-	// Frame 1
-	<-FrameSyncCh
-	for range animLen {
-		board[pos.y][pos.x].col = _Shot1C
-
-		if pos.y != end.y {
-			pos = pos.Add(dir)
-		}
-
-	}
-
-	time.Sleep(SIM_TIME)
-	time.Sleep(SIM_TIME)
-	pos = start
-	for range animLen {
-		board[pos.y][pos.x].col = EmptyC
-		if pos.y != end.y {
-			pos = pos.Add(dir)
-		}
-
-	}
-
-	time.Sleep(SIM_TIME)
-	pos = start
-	for range animLen {
-		board[pos.y][pos.x].col = _Shot2C
-		if pos.y != end.y {
-			pos = pos.Add(dir)
-		}
-
-	}
-
-	pos = start
-	for range animLen {
-		time.Sleep(SIM_TIME / 2)
-		board[pos.y][pos.x].col = _Shot3C
-		if pos.y != end.y {
-			pos = pos.Add(dir)
-		}
-
-	}
-
-	pos = start
-	for range animLen {
-		time.Sleep(SIM_TIME / 2)
-		board[pos.y][pos.x].col = _Shot4C
-		if pos.y != end.y {
-			pos = pos.Add(dir)
-		}
-
-	}
-
-	pos = start
-	for range animLen {
-		time.Sleep(SIM_TIME)
-		board[pos.y][pos.x].col = EmptyC
-		if pos.y != end.y {
-			pos = pos.Add(dir)
-		}
-
-	}
-
-}
 
 
 // Collect all (local) input and send down a single channel
@@ -328,7 +289,7 @@ func readLocalInputs(scr tcell.Screen, inputCh chan input) {
 				inputCh <-iLeft
 			case 'd':
 				inputCh <-iRight
-			case ' ':
+			case 'e':
 				inputCh <-iShot
 			}
 
@@ -368,16 +329,30 @@ func controlSnake(s *Snake) {
 			s.dir = L
 
 		case iShot:
-			snakes[PEER].tryInput(iShot)
 			end := Vec2{s.pos.x, 0}
 			dir := Vec2{0, 1}
 			if s.stateID == P1Head {
 				dir.y = -1
 				end.y = MapH
 			}
-			if s.pos.x == snakes[PEER].pos.x {
-				end.y = snakes[PEER].pos.y
+
+			if peerPos := snakes[PEER].pos; s.pos.x == peerPos.x {
+
+				confirm, ok := hitConfirms[RESIM_FRAME]
+				if ok {
+					confirm.hit = true
+					confirm.resimmed = true
+					hitConfirms[RESIM_FRAME] = confirm
+				} else {
+					hitConfirms[SIM_FRAME] = HitConfirm{
+						hit: false,
+						resimmed: false,
+						pos: peerPos,
+					}
+				}
+				end.y = peerPos.y
 			}
+			
 			go beamEffect(s.pos, end, dir)
 
 		}
@@ -420,9 +395,9 @@ func stylesInit() {
 	ColDefault = tcell.StyleDefault.Foreground(tcell.ColorWhiteSmoke ).Background(ColBlack)
 
 	ColShot1C  = tcell.StyleDefault.Foreground(tcell.ColorWhite      ).Background(ColBlack)
-	ColShot2C  = tcell.StyleDefault.Foreground(tcell.ColorRed        ).Background(ColBlack)
-	ColShot3C  = tcell.StyleDefault.Foreground(tcell.NewRGBColor( 33*2,  13*2,  16*2)    ).Background(ColBlack)
-	ColShot4C  = tcell.StyleDefault.Foreground(tcell.NewRGBColor( 18*2,  11*2,  12*2)    ).Background(ColBlack)
+	ColShot2C  = tcell.StyleDefault.Foreground(tcell.ColorDarkRed    ).Background(ColBlack)
+	ColShot3C  = tcell.StyleDefault.Foreground(tcell.NewRGBColor( 60,  13,  16)    ).Background(ColBlack)
+	ColShot4C  = tcell.StyleDefault.Foreground(tcell.NewRGBColor( 49,  11,  12)    ).Background(ColBlack)
 
 	cols = map[colorID]tcell.Style{
 		EmptyC  : ColEmpty  ,

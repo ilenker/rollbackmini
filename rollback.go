@@ -2,13 +2,19 @@ package main
 
 import (
 	"fmt"
-	"time"
 	//"github.com/gdamore/tcell/v2"
 )
 
 var COPY_STATE = false
 var LOAD_STATE = false
 
+var hitConfirms map[uint16]HitConfirm
+
+type HitConfirm	struct {
+	hit bool
+	resimmed bool
+	pos Vec2
+}
 
 type FrameData struct {
 	id uint16
@@ -125,6 +131,7 @@ func (rbb *RollbackBuffer) resimFramesWithNewInputs(frameID uint16, inputQ []inp
 		snakes[LOCAL] = rbb.frames[i % RB_BUFFER_LEN].snakesData[LOCAL]
 
 		// Resim with new inputs
+		RESIM_FRAME = currentFrameID
 		updateLogic(snakes)
 
 		rbb.frames[i % RB_BUFFER_LEN] = copyCurrentFrameData(&board, snakes, currentFrameID)
@@ -137,7 +144,7 @@ func (rbb *RollbackBuffer) resimFramesWithNewInputs(frameID uint16, inputQ []inp
 		currentFrameID++
 		
 		if currentFrameID == rbb.latestFrameID + 1 {
-			avgRollback = calcAvgRollback(time.Duration(i_) * SIM_TIME)
+			avgRollback = calcAvgRollback(i_)
 			return
 		}
 
