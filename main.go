@@ -40,6 +40,7 @@ func main() {
 	config := loadConfig("config.json")
 
 	LOCAL = config.LocalPlayer
+	online = config.Online
 	switch config.LocalPlayer {
 	case PLAYER_1:
 		PEER = PLAYER_2
@@ -340,14 +341,18 @@ func controlSnake(s *Snake) {
 
 				confirm, ok := hitConfirms[RESIM_FRAME]
 				if ok {
-					confirm.hit = true
-					confirm.resimmed = true
-					hitConfirms[RESIM_FRAME] = confirm
+					if confirm.snakeID == s.stateID {
+						confirm.hit = true
+						confirm.resimmed = true
+						hitConfirms[RESIM_FRAME] = confirm
+					} 
+
 				} else {
 					hitConfirms[SIM_FRAME] = HitConfirm{
 						hit: false,
 						resimmed: false,
 						pos: peerPos,
+						snakeID: s.stateID,
 					}
 				}
 				end.y = peerPos.y

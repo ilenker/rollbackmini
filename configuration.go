@@ -6,10 +6,11 @@ import (
 )
 
 type Config struct {
-    LocalPlayer       int `json:"localPlayer"`
-    MoveSpeed         int `json:"moveSpeed"`
-    RollbackWindow    int `json:"rollbackWindow"`
-    SimulationSpeedMS int `json:"simulationSpeedMS"`
+    LocalPlayer       int  `json:"localPlayer"`
+    MoveSpeed         int  `json:"moveSpeed"`
+    RollbackWindow    int  `json:"rollbackWindow"`
+    SimulationSpeedMS int  `json:"simulationSpeedMS"`
+    Online            bool `json:"online"`
 }
 
 func loadConfig(filename string) *Config {
@@ -22,6 +23,7 @@ func loadConfig(filename string) *Config {
 		config.MoveSpeed = 8
 		config.RollbackWindow = 15
 		config.SimulationSpeedMS = 16
+		config.Online = false
 		return &config
 	}
     
@@ -32,6 +34,7 @@ func loadConfig(filename string) *Config {
 		config.MoveSpeed = 8
 		config.RollbackWindow = 15
 		config.SimulationSpeedMS = 16
+		config.Online = false
 		return &config
 	}
 	return &config

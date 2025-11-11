@@ -14,6 +14,7 @@ type HitConfirm	struct {
 	hit bool
 	resimmed bool
 	pos Vec2
+	snakeID cellState
 }
 
 type FrameData struct {
