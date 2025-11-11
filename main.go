@@ -6,7 +6,6 @@ import (
 	"os"
 	"runtime"
 	"time"
-	"unsafe"
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -62,7 +61,8 @@ func main() {
 
 	// Board frame
 	DrawPixelBox(scr, 2, 2, MapW - 1, MapH/2 - 1, tcell.ColorBlue)
-	debugBox = DrawMessages(scr, MapW + 5, 4, 30, 30, true)
+	debugBox = DrawMessages(scr, MapW + 5 , 4, 30, 30, true)
+	errorBox = DrawMessages(scr, MapW + 37, 4, 15, 30, true)
 
 	snakes[PLAYER_1] = snakeMake(Vec2{MapW/2, 8}, R)
 	snakes[PLAYER_2] = snakeMake(Vec2{0,      5}, R)
@@ -76,7 +76,6 @@ func main() {
 	simTick := time.NewTicker(SIM_TIME)
 	avgSimT := makeAverageDurationBuffer(100)
 	startT := time.Now()
-
 
 	var _dMicroSec int64 = 0
 	var rollbackSize uint16 = 0 
@@ -101,6 +100,9 @@ func main() {
 		// Rollback Check - if packet came in, resimulate
 		select {
 		case pP := <-inboundPacketCh:
+			if pP.frameID == 6969 {
+				continue
+			}
 
 			inputQ := []input{
 				pP.inputQ[0],

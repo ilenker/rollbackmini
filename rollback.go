@@ -88,17 +88,25 @@ func (rbb *RollbackBuffer) resimFramesWithNewInputs(frameID uint16, inputQ []inp
 	debugBox("\\clr")
 	rollbackFrame := FrameData{}
 	resimFromBufferIdx := 0
+	frameExists := false
 
 	// Search for the frame to be resimmed
 	for i := range RB_BUFFER_LEN {
 
 		if rbb.frames[i].id == frameID {
+			frameExists = true
 			resimFromBufferIdx = i
 			rollbackFrame = rbb.frames[i]
 			break
 		}
 
 	}
+
+	if !frameExists {
+		errorBox(fmt.Sprintf("Frame %04d not found", frameID), 0, 0)
+		return
+	}
+
 
 	// TODO: Figure out how this number will be determined
 	rollbackFrame.snakesData[PEER].inputQ = inputQ

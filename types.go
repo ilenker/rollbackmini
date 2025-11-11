@@ -115,13 +115,14 @@ func assert(a any, b any, aName, bName string) {
 
 
 const MapH = 20
-const MapW = 20 * 3
+const MapW = 20 * 2
 
 const SUBCELL_SIZE = 32
 
 var	board = [MapH+1][MapW+1]Cell{}
 
 var debugBox func(msg string, args ...int)
+var errorBox func(msg string, args ...int)
 
 var SIM_FRAME uint16 = 1
 

@@ -103,8 +103,8 @@ func listenToPort(conn *net.UDPConn, inbound chan PeerPacket) error {
 		if err != nil { fmt.Printf("(listener)read error: %v\n", err) }
 
 		assert(n, 9, "n", "expectedPacketLen")
-		inbound <-bytesToPeerPacket(b[:n])
 
+		inbound <-bytesToPeerPacket(b[:n])
 	}
 }
 
