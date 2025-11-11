@@ -6,8 +6,8 @@ import (
 	"os"
 	"runtime"
 	"time"
+	"unsafe"
 	"github.com/gdamore/tcell/v2"
-	"math/rand"
 )
 
 var MOVES_PER_TICK int
@@ -21,15 +21,34 @@ var err error
 var lBorder = (MapW / 2) - 5
 var rBorder = (MapW / 2) + 5
 
-const LOCAL = 0
-const PEER  = 1
+const PLAYER_1  = 0
+const PLAYER_2  = 1
+
+var LOCAL int
+var PEER  int
 
 func main() {
+
+	LOCAL = PLAYER_1
+
+	switch LOCAL {
+	case PLAYER_1:
+		PEER = PLAYER_2
+	case PLAYER_2:
+		PEER = PLAYER_1
+	}
 							/*#### INIT ####*/
+
 	SIM_FRAME = 0
 	snakes := make([]*Snake, 2)
 	stylesInit()
 	boardInit(&board)
+
+	inboundPacketCh := make(chan PeerPacket, 64)
+	outboundPacketCh := make(chan PeerPacket, 64)
+	go multiplayer(inboundPacketCh, outboundPacketCh)
+	<-inboundPacketCh
+
 	scr, err = tcell.NewScreen()
 	F(err, "")
 	err = scr.Init()
@@ -41,35 +60,30 @@ func main() {
 							/*##############*/
 
 
-	snakes[LOCAL] = snakeMake(Vec2{MapW/2, 8}, R)
-	snakes[PEER ] = snakeMake(Vec2{0,  5}, R)
-	localInputCh := make(chan input, 8)
-
-	snakes[LOCAL].scpt = 32
-	snakes[PEER ].scpt = 16
-
-	board[MapH/2][rBorder].col = Wall
-	board[MapH/2][lBorder].col = Wall
-
-	go readInputs(scr, localInputCh)
-
-	// Here well have "go readPeer()" or something
-	simTick := time.NewTicker(SIM_TIME)
-
-
+	// Board frame
 	DrawPixelBox(scr, 2, 2, MapW - 1, MapH/2 - 1, tcell.ColorBlue)
-
-	//avgSimT := makeAverageDurationBuffer(100)
-	//startT := time.Now()
-
 	debugBox = DrawMessages(scr, MapW + 5, 4, 30, 30, true)
 
-	//var _dMicroSec int64 = 0
-	rollbackSize := 0 
+	snakes[PLAYER_1] = snakeMake(Vec2{MapW/2, 8}, R)
+	snakes[PLAYER_2] = snakeMake(Vec2{0,      5}, R)
+
+	snakes[PLAYER_1].scpt = 32
+	snakes[PLAYER_2].scpt = 16
+
+	localInputCh := make(chan input, 8)
+	go readLocalInputs(scr, localInputCh)
+
+	simTick := time.NewTicker(SIM_TIME)
+	avgSimT := makeAverageDurationBuffer(100)
+	startT := time.Now()
+
+
+	var _dMicroSec int64 = 0
+	var rollbackSize uint16 = 0 
 
 	debugPrint := func () {
 		{
-			//debugBox(fmt.Sprintf("Frame Time:\t[%.2f]", float64(_dMicroSec)/1000), 0, 0)
+			debugBox(fmt.Sprintf("Frame Time:\t[%.2f]", float64(_dMicroSec)/1000), 0, 0)
 			debugBox(fmt.Sprintf("Rollback Size:\t[%2d]", rollbackSize), 0, 0)
 			debugBox(fmt.Sprintf("sim_frame:\t%5d", SIM_FRAME), 0, 1)
 			//debugBox(fmt.Sprintf("MPT:\t\t%2d(%.2f)", MOVES_PER_TICK, float64(snakes[0].scpt) / float64(SUBCELL_SIZE)), 0, 2)
@@ -80,50 +94,46 @@ func main() {
 
 	// qwfploop
 	for {
-		//startT = time.Now()
+		startT = time.Now()
 		MOVES_PER_TICK = 0
 		<-simTick.C
 
-		if SIM_FRAME > RB_BUFFER_LEN {
-			
-			if SIM_FRAME % 10 == 0 {
-				
-				rollbackSize = 1 + rand.Intn(RB_BUFFER_LEN)
+		// Rollback Check - if packet came in, resimulate
+		select {
+		case pP := <-inboundPacketCh:
 
-				var q []input = make([]input, 4)
-				ilen := rand.Intn(3)
-				for i := range ilen {
-					q[i] = input(1 + rand.Intn(3))
-				}
-
-				rollbackBuffer.resimFramesWithNewInputs(SIM_FRAME - uint32(rollbackSize),
-					q,
-					&board, snakes)
+			inputQ := []input{
+				pP.inputQ[0],
+				pP.inputQ[1],
+				pP.inputQ[2],
+				pP.inputQ[3],
 			}
 
+			// Multiple "updateLogic" calls in this function
+			rollbackBuffer.resimFramesWithNewInputs(pP.frameID, inputQ, &board, snakes)
+			rollbackSize = SIM_FRAME - pP.frameID
+
+		default:
 		}
 
-		if snakes[LOCAL].pos.x >= rBorder {
-			localInputCh <-iLeft
-		}
-		if snakes[LOCAL].pos.x <= lBorder {
-			localInputCh <-iRight
-		}
+		// Load up local snake's input queue 
 		drainInputChToSnake(localInputCh, snakes, LOCAL)
 
+		// Store current frame in the rollback buffer
 		rollbackBuffer.pushFrame(copyCurrentFrameData(&board, snakes, SIM_FRAME))
+		outboundPacketCh <-makePeerPacket(SIM_FRAME, snakes[LOCAL])
 
+		// Simulate live frame
+		// We store the frame before simulating live frame,
+		// because the stored frame has the information needed
+		// to create this state already - and we won't
+		// necessarily use every stored frame.
 		updateLogic(snakes)
 
 		SIM_FRAME++
-		//_dMicroSec = avgSimT(time.Since(startT))
+		_dMicroSec = avgSimT(time.Since(startT))
 		debugPrint()
 		render(scr, 2, 2)
-
-		if snakes[LOCAL].pos.x > rBorder ||
-			snakes[LOCAL].pos.x < lBorder {
-			scr.PollEvent()
-		}
 
 	}
 }
@@ -137,8 +147,6 @@ func updateLogic(snakes []*Snake) {
 
 	for _, s := range snakes {
 		subcellBudget := s.scpt - s.subcellDebt
-		//debugBox2(fmt.Sprintf("subcellBudget:\t[%2d]", subcellBudget), 0, 1)
-		//debugBox2(fmt.Sprintf("scpt[%3d]-debt[%3d]", s.scpt, s.subcellDebt), 0, 2)
 
 		for {
 			if subcellBudget <= 0 {
@@ -146,42 +154,13 @@ func updateLogic(snakes []*Snake) {
 				break
 			}
 
-			// Here we pop from the input queue
-			// If our scpt is greater than the subcell size
-			// Then we may pop more than one input per simtick.
 			controlSnake(s)
 
-			//if s.halving {
-			//	s.half()
-			//}
-
-			//tailCell := cellGet(&board, s.tail.pos)
 			cellSet(&board, s.pos, Empty, Empty)
-			//cellSet(&board, s.tail.pos, Empty, Empty)
 
-			//if tailCell.state == P1Food {
-			//	s.grow()
-			//	tailCell.state = Empty
-			//} else {
 			s.move()
-			//}
-
-			//headCell := cellGet(&board, s.head.pos)
-			//if headCell.state == Portal {
-			//	tailPos := s.tail.pos
-			//	s.port(headCell.connection)
-			//	cellSet(&board, tailPos, Empty, Empty)
-			//	headCell = cellGet(&board, s.head.pos)
-			//}
-
-			//if headCell.state == P1Body {
-			//	s.eatSelf()
-			//	cellSet(&board, s.head.pos, Empty, Empty)
-			//}
 
 			cellSet(&board, s.pos, P1Head, P1Head)
-			//cellSet(&board, s.tail.pos, P1Tail, P1Tail)
-			//debugBox2(fmt.Sprintf("len:%2d\t", s.length), 0, 0)
 
 			subcellBudget -= SUBCELL_SIZE
 			MOVES_PER_TICK++
@@ -228,16 +207,12 @@ func render(s tcell.Screen, xOffset, yOffset int) {
 		}
 	}
 
-	for i := range 20 {
-		s.SetContent(2+i, MapH, rune(((i+1) % 10)+48), nil, ColDefault)
-	}
-
 	s.Show()
 }
 
 
 // Collect all (local) input and send down a single channel
-func readInputs(scr tcell.Screen, inputCh chan input) {
+func readLocalInputs(scr tcell.Screen, inputCh chan input) {
 
 	for {
 		ev := scr.PollEvent()
@@ -268,6 +243,7 @@ func readInputs(scr tcell.Screen, inputCh chan input) {
 	}
 
 }
+
 
 func drainInputChToSnake(inputCh chan input, s []*Snake, snakeID int) {
 	full := false

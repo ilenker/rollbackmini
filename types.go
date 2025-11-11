@@ -123,7 +123,7 @@ var	board = [MapH+1][MapW+1]Cell{}
 
 var debugBox func(msg string, args ...int)
 
-var SIM_FRAME uint32 = 1
+var SIM_FRAME uint16 = 1
 
 var ROLLBACK bool
 

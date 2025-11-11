@@ -10,7 +10,7 @@ var LOAD_STATE = false
 
 
 type FrameData struct {
-	id uint32
+	id uint16
 	board [MapH+1][MapW+1]Cell
 	snakesData []*Snake
 }
@@ -19,11 +19,12 @@ type FrameData struct {
 type RollbackBuffer struct {
 	frames [RB_BUFFER_LEN]FrameData
 	idxLatest int
-	latestFrameID uint32
+	latestFrameID uint16
 }
 
 
 func (rbb *RollbackBuffer) pushFrame(frame FrameData) {
+
 	debugBox(fmt.Sprintf("%x", rbb.idxLatest), 1 + rbb.idxLatest, 2)
 	if rbb.idxLatest == 0 { debugBox("                ", rbb.idxLatest, 3) }
 	debugBox(" ^", rbb.idxLatest, 3)
@@ -31,6 +32,7 @@ func (rbb *RollbackBuffer) pushFrame(frame FrameData) {
 	rbb.idxLatest = (rbb.idxLatest + 1) % RB_BUFFER_LEN
 	rbb.frames[rbb.idxLatest] = frame
 	rbb.latestFrameID = frame.id
+
 }
 
 
@@ -81,7 +83,7 @@ func (rbb *RollbackBuffer) pushFrame(frame FrameData) {
 // This function will be called on *each packet* that comes in
 // that conflicts with "no_input"
 // So we go to that frame, resim *everything* from there onwards.
-func (rbb *RollbackBuffer) resimFramesWithNewInputs(frameID uint32, inputQ []input, b *[MapH+1][MapW+1]Cell, snakes []*Snake) {
+func (rbb *RollbackBuffer) resimFramesWithNewInputs(frameID uint16, inputQ []input, b *[MapH+1][MapW+1]Cell, snakes []*Snake) {
 
 	debugBox("\\clr")
 	rollbackFrame := FrameData{}
@@ -110,9 +112,7 @@ func (rbb *RollbackBuffer) resimFramesWithNewInputs(frameID uint32, inputQ []inp
 	i := resimFromBufferIdx
 	i_ := 0
 	for {
-		// Get handle on current frames local inputs
-		//localInputs := rbb.frames[i % RB_BUFFER_LEN].snakesData[LOCAL].inputQ
-		//snakes[LOCAL].inputQ = localInputs
+		// Load saved state for local player from rollback frame
 		snakes[LOCAL] = rbb.frames[i % RB_BUFFER_LEN].snakesData[LOCAL]
 
 		// Resim with new inputs
@@ -124,15 +124,13 @@ func (rbb *RollbackBuffer) resimFramesWithNewInputs(frameID uint32, inputQ []inp
 			rbb.frames[i % RB_BUFFER_LEN].snakesData[LOCAL].inputQ,
 			currentFrameID), 0, 4 + i_)
 
-
 		currentFrameID++
 		
 		if currentFrameID == rbb.latestFrameID + 1 {
-			i_++
 			return
 		}
-		i++
-		i_++
+
+		i++; i_++
 	}
 		
 }
@@ -161,7 +159,7 @@ func (rbb *RollbackBuffer) rectifyFrameData(fd *FrameData, inputQ []input) {
 }
 
 
-func copyCurrentFrameData(b *[MapH+1][MapW+1]Cell, snakes []*Snake, frameID uint32) FrameData {
+func copyCurrentFrameData(b *[MapH+1][MapW+1]Cell, snakes []*Snake, frameID uint16) FrameData {
 	snakesData := make([]*Snake, len(snakes), cap(snakes))
 
 	for i, snake := range snakes {
