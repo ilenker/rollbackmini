@@ -12,6 +12,7 @@ var hitConfirms map[uint16]HitConfirm
 
 type HitConfirm	struct {
 	pos Vec2
+	confirm bool
 }
 
 type FrameData struct {

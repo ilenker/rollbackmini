@@ -81,6 +81,7 @@ type Snake struct {
 	subcellDebt int16
 	inputQ []signal
 	stateID cellState
+	isLocal bool
 }
 
 

@@ -122,6 +122,12 @@ func listenToPort(conn *net.UDPConn, inboundInputs, inboundReplies chan PeerPack
 
 		peerPacket := bytesToPeerPacket(b[:n])
 
+		if peerPacket.content[0] == 'H' ||
+		   peerPacket.content[0] == 'M' {
+			inboundReplies  <-peerPacket
+			continue
+		}
+
 		inboundInputs  <-peerPacket
 	}
 

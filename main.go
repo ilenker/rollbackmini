@@ -16,6 +16,7 @@ var SIM_TIME time.Duration
 const SCPT = 64
 const RB_BUFFER_LEN = 15
 
+var packetsToPeerCh chan PeerPacket
 var FrameSyncCh chan bool
 var online = false
 
@@ -56,7 +57,6 @@ func main() {
 
 	var inputFromPeerCh chan PeerPacket
 	var replyFromPeerCh chan PeerPacket
-	var packetsToPeerCh chan PeerPacket
 	if online {
 		inputFromPeerCh = make(chan PeerPacket, 64)
 		replyFromPeerCh = make(chan PeerPacket, 64)
@@ -80,8 +80,10 @@ func main() {
 	debugBox = DrawMessages(scr, MapW + 5 , 4, 30, 30, true)
 	errorBox = DrawMessages(scr, MapW + 37, 4, 15, 30, true)
 
-	snakes[PLAYER_1] = snakeMake(Vec2{(MapW/2)    ,  7 + MapH/2}, L, P1Head)
+	snakes[PLAYER_1] = snakeMake(Vec2{(MapW/2) ,  7 + MapH/2}, L, P1Head)
 	snakes[PLAYER_2] = snakeMake(Vec2{(MapW/2) , -8 + MapH/2}, R, P2Head)
+	snakes[LOCAL].isLocal = true
+	snakes[PEER ].isLocal = false
 
 	snakes[PLAYER_1].scpt = int16(config.MoveSpeed)
 	snakes[PLAYER_2].scpt = int16(config.MoveSpeed)
@@ -151,8 +153,23 @@ func main() {
 		debugPrint()
 
 		select {
+		case pP := <-replyFromPeerCh:
+			if pP.content[0] == 'H' {
+				hitPos := hitConfirms[pP.frameID].pos
+				go hitEffect(hitPos, 2 * rand.Float64())
+				go hitEffect(hitPos, 2 * rand.Float64())
+				go hitEffect(hitPos, 2 * rand.Float64())
+				go hitEffect(hitPos, 2 * rand.Float64())
+			}
+			delete(hitConfirms, pP.frameID)
+		default:
+		// Don't Block
+		}
+
+		select {
 		case FrameSyncCh <-true:
 		default:
+		// Don't Block
 		}
 
 		render(scr, 2, 2)
@@ -284,16 +301,16 @@ func drainInputChToSnake(inputCh chan signal, s []*Snake, snakeID int) {
 
 
 func controlSnake(s *Snake, isResim bool) {
-	var isLocal bool
 
-	if PLAYER_1 == LOCAL &&
-	  s.stateID == P1Head {
-		isLocal = true
+	var otherPos Vec2
+	if LOCAL == PLAYER_1 {
+		otherPos = snakes[PLAYER_2].pos
 	}
-	if PLAYER_2 == LOCAL &&
-	  s.stateID == P2Head {
-		isLocal = true
+
+	if LOCAL == PLAYER_2 {
+		otherPos = snakes[PLAYER_1].pos
 	}
+
 
 	input, ok := s.popInput()
 	if ok {
@@ -307,8 +324,7 @@ func controlSnake(s *Snake, isResim bool) {
 		case iShot:
 			var hit bool
 			var dir Vec2
-			peerPos := snakes[PEER].pos
-			hit = (s.pos.x == peerPos.x)
+			hit = (s.pos.x == otherPos.x)
 			end := s.pos
 
 			if s.stateID == P1Head {
@@ -322,26 +338,51 @@ func controlSnake(s *Snake, isResim bool) {
 			}
 
 			if hit {
-				end.y = peerPos.y
-				if isResim {
-					go hitEffect(peerPos, 2 * rand.Float64())
-					go hitEffect(peerPos, 2 * rand.Float64())
-					go hitEffect(peerPos, 2 * rand.Float64())
-					go hitEffect(peerPos, 2 * rand.Float64())
+				end.y = otherPos.y
+			}
+
+			// 1. When local simulates live shot:
+			if s.isLocal && !isResim {
+				go beamEffect(s.pos, end, dir)
+				if hit {
+					hitConfirms[SIM_FRAME] = HitConfirm{ end, false }
 				}
 			}
 
-			if (isLocal && !isResim) {
+			//2. When local resimulates peer shot:
+			if !s.isLocal && isResim {
 				go beamEffect(s.pos, end, dir)
+				if hit {
+					packetsToPeerCh <-PeerPacket{ RESIM_FRAME, [4]byte{ 'H', '_', '_', '_' }}
+					go hitEffect(snakes[LOCAL].pos, 2 * rand.Float64())
+					go hitEffect(snakes[LOCAL].pos, 2 * rand.Float64())
+					go hitEffect(snakes[LOCAL].pos, 2 * rand.Float64())
+					go hitEffect(snakes[LOCAL].pos, 2 * rand.Float64())
+				}
+				if !hit {
+					packetsToPeerCh <-PeerPacket{ RESIM_FRAME, [4]byte{ 'M', '_', '_', '_' }}
+				}
 			}
 
-			if !isLocal {
-				go beamEffect(s.pos, end, dir)
-			}
 		}
 	}
-
 }
+
+/* Hit Confirm Rules:
+	
+	1. When local simulates live shot:
+		if it "hits"
+			Display beam from local that stops at peer.
+			record hitconfirm in log: hitConfirms[SIM_FRAME] -> playerPos, confirm?
+
+	2. When local resimulates peer shot:
+		if it hits
+	 		send a packet confirming the hit.
+			Display beam from peer
+			Display hit effect on self
+		
+*/
+
 
 
 func boardInit(board *[MapH+1][MapW+1]Cell) {
