@@ -6,25 +6,34 @@ import (
 	"log"
 	"strings"
 	"strconv"
-	"golang.org/x/term"
 )
 
 var Debug bool
 
-type TermInfo struct {
-	fd int
-	Cols int
-	Rows int
-	oldState *term.State
-}
-
 type PeerPacket struct {
 	frameID uint16
-	inputQ [4]input
+	content [4]byte
 }
 
+/*
 
-func multiplayer(inbound, outbound chan PeerPacket) {
+r u l d, h, p
+
+H M
+
+123456:LRS_
+
+123457:L___
+
+123458:____
+
+123450:H___
+123450:M___
+
+*/
+
+
+func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket) {
 	version := "v0.1"
 
 	fmt.Println("==== Rollback Microgame P2P ====")
@@ -53,12 +62,15 @@ func multiplayer(inbound, outbound chan PeerPacket) {
 
 	 // Wait for peer connection + information from rendezvous 
 	peerPubIP, _ := waitForRdvReply(rdvConn, &rdvAddr)
-	inbound <-PeerPacket{frameID:6969}
+
+	// This is just a local signal for now
+	// to unblock main thread when both peers are ready
+	inboundInputs <-PeerPacket{frameID:6969}
 	
 	fmt.Printf(" >> Peer found: [%s]\n", peerPubIP)
 
-	 // After Server Connect
-     // Punch hole
+	// After Server Connect
+    // Punch hole
 	premote, err := net.ResolveUDPAddr("udp4", peerPubIP)
 	if err != nil {
 		fmt.Printf("(punch)address parse failed: %v\n", err)
@@ -67,23 +79,28 @@ func multiplayer(inbound, outbound chan PeerPacket) {
 	}
 
 	fmt.Printf(" >> punching hole\n")
+	rdvConn.WriteToUDP([]byte("65535=6969"), premote)
 
-	rdvConn.WriteToUDP([]byte("6969=0000"), premote)
 
-	go listenToPort(rdvConn, inbound)
+	// Inbound loop thread
+	go listenToPort(rdvConn, inboundInputs, inboundReplies)
 
 	fmt.Printf(" >> Listening...\n\n")
 	fmt.Println("--- Launching SnakeCycles ---")
 	fmt.Println("---     <esc> to quit     ---")
 
 
+	// Outbound loop
 	for {
-		pP := <-outbound
+		// From main thread...
+		pP := <-outboundPackets
 		if pP.frameID < 50 {
 			continue
 		}
+
 		input := peerPacketToBytes(pP)
 
+		// ...out to peer.
 		n, err := rdvConn.WriteToUDP([]byte(input), premote)
 		if err != nil { fmt.Printf("(main)sending [%d bytes] failed: %v\n", n, err) }
 	}
@@ -91,20 +108,23 @@ func multiplayer(inbound, outbound chan PeerPacket) {
 }
 
 
-func listenToPort(conn *net.UDPConn, inbound chan PeerPacket) error {
+func listenToPort(conn *net.UDPConn, inboundInputs, inboundReplies chan PeerPacket) error {
 
 	defer conn.Close()
 
-	b := make([]byte, 512)
+	b := make([]byte, 64)
 
 	for {
 		n, _, err := conn.ReadFromUDP(b)
 		if err != nil { fmt.Printf("(listener)read error: %v\n", err) }
 
-		assert(n, 9, "n", "expectedPacketLen")
+		assert(n, 10, "n", "expectedPacketLen")
 
-		inbound <-bytesToPeerPacket(b[:n])
+		peerPacket := bytesToPeerPacket(b[:n])
+
+		inboundInputs  <-peerPacket
 	}
+
 }
 
 
@@ -123,7 +143,6 @@ func waitForRdvReply(conn *net.UDPConn, rdvAddr *net.UDPAddr) (string, string) {
 
 	for {
 		if peerPublicEndpoint != "" && peerPrivateEndpoint != "" {
-			fmt.Printf("if peerPublicEndpoint != \"\" && peerPrivateEndpoint != \"\"\n")
 			return peerPublicEndpoint, peerPrivateEndpoint
 		}
 
@@ -131,19 +150,15 @@ func waitForRdvReply(conn *net.UDPConn, rdvAddr *net.UDPAddr) (string, string) {
 		if err != nil { fmt.Printf("(rdv-reply)read error: %v\n", err) }
 
 		if len(b) > 1 {
-			fmt.Printf("if len(b) > 1\n")
 
 			data, found := strings.CutPrefix(string(b[:n]), "peerPublicEndpoint:")
-			fmt.Printf("####")
 			if found {
-				fmt.Printf("if found { PUB\n")
 				peerPublicEndpoint = data
 				continue
 			}
 
 			data, found = strings.CutPrefix(string(b[:n]), "peerPrivateEndpoint:") 
 			if found {
-				fmt.Printf("if found { PRIV\n")
 				peerPrivateEndpoint = data
 			}
 
@@ -165,57 +180,48 @@ func GetOutboundIP() net.IP {
     return localAddr.IP
 }
 
+//  {frameID: 12345, [L, R, _, _]} -> "12345=LR__"
 func peerPacketToBytes(p PeerPacket) []byte {
-	s := fmt.Sprintf("%04d=%1d%1d%1d%1d",
+	s := fmt.Sprintf("%05d=%1c%1c%1c%1c",
 		p.frameID,
-		p.inputQ[0],
-		p.inputQ[1],
-		p.inputQ[2],
-		p.inputQ[3])
-	assert(len(s), 9, "len(s)", "9")
+		p.content[0],
+		p.content[1],
+		p.content[2],
+		p.content[3])
+	assert(len(s), 10, "len(s)", "10")
 	return []byte(s)
 }
 
+// "12345=LR__" -> {frameID: 12345, [L, R, _, _]}
 func bytesToPeerPacket(b []byte) PeerPacket {
-	assert(len(b), 9, "len(b)", "9")
+	assert(len(b), 10, "len(b)", "10")
 	s := string(b)
 	split := strings.Split(s, "=")
 
 	frameID, err := strconv.Atoi(split[0]); F(err, "bytesToPeerPacket:ID")
 
-	input0, err := strconv.Atoi(string(split[1][0])); F(err, "bytesToPeerPacket:0")
-	input1, err := strconv.Atoi(string(split[1][1])); F(err, "bytesToPeerPacket:1")
-	input2, err := strconv.Atoi(string(split[1][2])); F(err, "bytesToPeerPacket:2")
-	input3, err := strconv.Atoi(string(split[1][3])); F(err, "bytesToPeerPacket:3")
-
 	packet := PeerPacket{
 		frameID: uint16(frameID),
-		inputQ: [4]input{
-			input(input0),
-			input(input1),
-			input(input2),
-			input(input3),
+		content: [4]byte{
+			split[1][0],
+			split[1][1],
+			split[1][2],
+			split[1][3],
 		},
 	}
 
 	return packet
 }
 
-func makePeerPacket(frameID uint16, snake *Snake) PeerPacket {
-
-	inputQ := [4]input{
-		iNone,
-		iNone,
-		iNone,
-		iNone,
-	} 
-
-	copy(inputQ[:], snake.inputQ)
-
+func makePeerPacket(frameID uint16, content []signal) PeerPacket {
 
 	pP := PeerPacket{
 		frameID: frameID,
-		inputQ: inputQ, 
+		content: [4]byte{'_', '_', '_', '_'},
+	}
+
+	for i, b := range content {
+		pP.content[i] = byte(b)
 	}
 
 	return pP

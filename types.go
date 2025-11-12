@@ -9,13 +9,16 @@ import (
 type cellState uint8
 type colorID uint8
 type direction uint8
-type input uint8
+type signal byte
 
 const (
-	iNone input = iota
-	iRight 
-	iLeft
-	iShot
+	iNone  signal = 95  // _
+	iRight signal = 114 // r
+	iLeft  signal = 108 // l 
+	iShot  signal = 115 // s
+
+	iHit   signal = 72  // H 
+	iMiss  signal = 77  // M
 )
 
 const (
@@ -76,7 +79,7 @@ type Snake struct {
 	dir direction
 	scpt int16
 	subcellDebt int16
-	inputQ []input
+	inputQ []signal
 	stateID cellState
 }
 
@@ -91,7 +94,7 @@ func (s *Snake) move() {
 }
 
 
-func (s *Snake) popInput() (input, bool) {
+func (s *Snake) popInput() (signal, bool) {
 	if len(s.inputQ) == 0 {
 		return iNone, false
 	}
@@ -103,7 +106,7 @@ func (s *Snake) popInput() (input, bool) {
 } 
 
 
-func (s *Snake) tryInput(inp input) bool {
+func (s *Snake) tryInput(inp signal) bool {
 	if len(s.inputQ) >= 3 {
 		return true
 	}
@@ -167,7 +170,8 @@ var RESIM_FRAME uint16 = 1
 
 var ROLLBACK bool
 
-var inputName = map[input]string {
+var inputName = map[signal]string {
 	iRight: "right",
 	iLeft:  "left",
+	iShot:  "shot",
 }

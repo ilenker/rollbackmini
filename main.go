@@ -36,7 +36,6 @@ var P2Score int = 0
 func main() {
 
 							/*#### INIT ####*/
-
 	config := loadConfig("config.json")
 
 	LOCAL = config.LocalPlayer
@@ -55,14 +54,16 @@ func main() {
 	stylesInit()
 	boardInit(&board)
 
-	var inboundPacketCh chan PeerPacket
-	var outboundPacketCh chan PeerPacket
+	var inputFromPeerCh chan PeerPacket
+	var replyFromPeerCh chan PeerPacket
+	var packetsToPeerCh chan PeerPacket
 	if online {
-		inboundPacketCh = make(chan PeerPacket, 64)
-		outboundPacketCh = make(chan PeerPacket, 64)
+		inputFromPeerCh = make(chan PeerPacket, 64)
+		replyFromPeerCh = make(chan PeerPacket, 64)
+		packetsToPeerCh = make(chan PeerPacket, 64)
 
-		go multiplayer(inboundPacketCh, outboundPacketCh)
-		<-inboundPacketCh
+		go multiplayer(inputFromPeerCh, replyFromPeerCh, packetsToPeerCh)
+		<-inputFromPeerCh
 	}
 
 	scr, err = tcell.NewScreen(); F(err, "")
@@ -85,14 +86,14 @@ func main() {
 	snakes[PLAYER_1].scpt = int16(config.MoveSpeed)
 	snakes[PLAYER_2].scpt = int16(config.MoveSpeed)
 
-	localInputCh := make(chan input, 8)
+	localInputCh := make(chan signal, 8)
 	go readLocalInputs(scr, localInputCh)
 
 	simTick := time.NewTicker(SIM_TIME)
 	avgSimT := makeAverageDurationBuffer(100)
 	calcAvgRollback = makeAverageIntBuffer(50)
 	startT := time.Now()
-	FrameSyncCh = make(chan bool, 5)
+	FrameSyncCh = make(chan bool, 32)
 
 	var _dMicroSec int64 = 0
 
@@ -113,74 +114,37 @@ func main() {
 		MOVES_PER_TICK = 0
 		<-simTick.C
 
-		// Rollback Check - if packet came in, resimulate
-
-		// When a packet comes in with a framenumber on which we did a shot
-		// we resimulate as usual - but this is where the hit-confirm happens.
-
+		// Check for peer inputs
 		select {
-		case pP := <-inboundPacketCh:
-			if pP.frameID == 6969 {
-				continue
+		case pP := <-inputFromPeerCh:
+
+
+			// Case of "reporting no inputs"
+			if pP.content[0] == '_' {
+				goto SkipRollback
 			}
 
-			if pP.inputQ[0] == iNone {
-				// If this pP.frameID is one where we "landed" a shot
-				// we can trigger the Hit Confirm sparks and increase score
-				confirm, ok := hitConfirms[pP.frameID]
-				if ok {
-					confirm.resimmed = true
-					confirm.hit = true
-					hitConfirms[pP.frameID] = confirm
-				}
-				goto correctPrediction
-			}
-
-			inputQ := []input{
-				pP.inputQ[0],
-				pP.inputQ[1],
-				pP.inputQ[2],
-				pP.inputQ[3],
-			}
-
-			// Multiple "updateLogic" calls in this function
-			rollbackBuffer.resimFramesWithNewInputs(pP.frameID, inputQ, &board, snakes)
+			// Case of "reporting some inputs"
+			rollbackBuffer.resimFramesWithNewInputs(pP.frameID, pP.content[:], &board, snakes)
 
 		default:
-
+		// Don't block
 		}
 
-		correctPrediction:
+		SkipRollback:
 
 		// Load up local snake's input queue 
 		drainInputChToSnake(localInputCh, snakes, LOCAL)
 
 		// Store current frame in the rollback buffer
+		// The frame is "unsimulated", but it contains
+		// all the information needed to simulate it.
 		rollbackBuffer.pushFrame(copyCurrentFrameData(&board, snakes, SIM_FRAME))
-		if online {
-			outboundPacketCh <-makePeerPacket(SIM_FRAME, snakes[LOCAL])
-		}
+		if online {  
+			packetsToPeerCh <-makePeerPacket(SIM_FRAME, snakes[LOCAL].inputQ)
+		}  
 
-		// Simulate live frame
-		// We store the frame before simulating live frame,
-		// because the stored frame has the information needed
-		// to create this state already - and we won't
-		// necessarily use every stored frame.
-		updateLogic(snakes)
-
-		for frame, confirm := range hitConfirms {
-			if confirm.hit {
-				go hitEffect(confirm.pos, 2 * rand.Float64())
-				go hitEffect(confirm.pos, 2 * rand.Float64())
-				go hitEffect(confirm.pos, 2 * rand.Float64())
-				go hitEffect(confirm.pos, 2 * rand.Float64())
-				delete(hitConfirms, frame)
-			} else {
-				if confirm.resimmed {
-					delete(hitConfirms, frame)
-				}
-			}
-		}
+		updateLogic(snakes, false)
 
 		SIM_FRAME++
 		_dMicroSec = avgSimT(time.Since(startT))
@@ -201,7 +165,7 @@ func main() {
 // Could be local user, multiplayer peer, bot
 // This only updates the snake state.
 // We'll see how this works out (input validation based on board state?)
-func updateLogic(snakes []*Snake) {
+func updateLogic(snakes []*Snake, isResim bool) {
 
 	for _, s := range snakes {
 		subcellBudget := s.scpt - s.subcellDebt
@@ -212,7 +176,7 @@ func updateLogic(snakes []*Snake) {
 				break
 			}
 
-			controlSnake(s)
+			controlSnake(s, isResim)
 
 			cellSet(&board, s.pos, Empty)
 
@@ -272,7 +236,7 @@ func render(s tcell.Screen, xOffset, yOffset int) {
 
 
 // Collect all (local) input and send down a single channel
-func readLocalInputs(scr tcell.Screen, inputCh chan input) {
+func readLocalInputs(scr tcell.Screen, inputCh chan signal) {
 
 	for {
 		ev := scr.PollEvent()
@@ -300,7 +264,7 @@ func readLocalInputs(scr tcell.Screen, inputCh chan input) {
 }
 
 
-func drainInputChToSnake(inputCh chan input, s []*Snake, snakeID int) {
+func drainInputChToSnake(inputCh chan signal, s []*Snake, snakeID int) {
 	full := false
 
 	for {
@@ -319,7 +283,18 @@ func drainInputChToSnake(inputCh chan input, s []*Snake, snakeID int) {
 }
 
 
-func controlSnake(s *Snake) {
+func controlSnake(s *Snake, isResim bool) {
+	var isLocal bool
+
+	if PLAYER_1 == LOCAL &&
+	  s.stateID == P1Head {
+		isLocal = true
+	}
+	if PLAYER_2 == LOCAL &&
+	  s.stateID == P2Head {
+		isLocal = true
+	}
+
 	input, ok := s.popInput()
 	if ok {
 		switch input {
@@ -330,36 +305,39 @@ func controlSnake(s *Snake) {
 			s.dir = L
 
 		case iShot:
-			end := Vec2{s.pos.x, 0}
-			dir := Vec2{0, 1}
+			var hit bool
+			var dir Vec2
+			peerPos := snakes[PEER].pos
+			hit = (s.pos.x == peerPos.x)
+			end := s.pos
+
 			if s.stateID == P1Head {
-				dir.y = -1
+				dir = Vec2{0, -1}
+				end.y = 0 
+			}
+
+			if s.stateID == P2Head {
+				dir = Vec2{0, 1}
 				end.y = MapH
 			}
 
-			if peerPos := snakes[PEER].pos; s.pos.x == peerPos.x {
-
-				confirm, ok := hitConfirms[RESIM_FRAME]
-				if ok {
-					if confirm.snakeID == s.stateID {
-						confirm.hit = true
-						confirm.resimmed = true
-						hitConfirms[RESIM_FRAME] = confirm
-					} 
-
-				} else {
-					hitConfirms[SIM_FRAME] = HitConfirm{
-						hit: false,
-						resimmed: false,
-						pos: peerPos,
-						snakeID: s.stateID,
-					}
-				}
+			if hit {
 				end.y = peerPos.y
+				if isResim {
+					go hitEffect(peerPos, 2 * rand.Float64())
+					go hitEffect(peerPos, 2 * rand.Float64())
+					go hitEffect(peerPos, 2 * rand.Float64())
+					go hitEffect(peerPos, 2 * rand.Float64())
+				}
 			}
-			
-			go beamEffect(s.pos, end, dir)
 
+			if (isLocal && !isResim) {
+				go beamEffect(s.pos, end, dir)
+			}
+
+			if !isLocal {
+				go beamEffect(s.pos, end, dir)
+			}
 		}
 	}
 
@@ -421,7 +399,7 @@ func stylesInit() {
 
 func snakeMake(start Vec2, d direction, stateID cellState) *Snake{
 
-	inputQ := make([]input, 0, 4)
+	inputQ := make([]signal, 0, 4)
 	snake := &Snake{
 		pos: start,
 		dir: d,

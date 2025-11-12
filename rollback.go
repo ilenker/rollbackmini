@@ -11,10 +11,7 @@ var LOAD_STATE = false
 var hitConfirms map[uint16]HitConfirm
 
 type HitConfirm	struct {
-	hit bool
-	resimmed bool
 	pos Vec2
-	snakeID cellState
 }
 
 type FrameData struct {
@@ -91,7 +88,7 @@ func (rbb *RollbackBuffer) pushFrame(frame FrameData) {
 // This function will be called on *each packet* that comes in
 // that conflicts with "no_input"
 // So we go to that frame, resim *everything* from there onwards.
-func (rbb *RollbackBuffer) resimFramesWithNewInputs(frameID uint16, inputQ []input, b *[MapH+1][MapW+1]Cell, snakes []*Snake) {
+func (rbb *RollbackBuffer) resimFramesWithNewInputs(frameID uint16, inputQBytes []byte, b *[MapH+1][MapW+1]Cell, snakes []*Snake) {
 
 	debugBox("\\clr")
 	rollbackFrame := FrameData{}
@@ -115,8 +112,11 @@ func (rbb *RollbackBuffer) resimFramesWithNewInputs(frameID uint16, inputQ []inp
 		return
 	}
 
+	inputQ := make([]signal, len(inputQBytes))
+	for i, b := range inputQBytes {
+		inputQ[i] = signal(b)
+	}
 
-	// TODO: Figure out how this number will be determined
 	rollbackFrame.snakesData[PEER].inputQ = inputQ
 	currentFrameID := rollbackFrame.id
 
@@ -133,7 +133,7 @@ func (rbb *RollbackBuffer) resimFramesWithNewInputs(frameID uint16, inputQ []inp
 
 		// Resim with new inputs
 		RESIM_FRAME = currentFrameID
-		updateLogic(snakes)
+		updateLogic(snakes, true)
 
 		rbb.frames[i % RB_BUFFER_LEN] = copyCurrentFrameData(&board, snakes, currentFrameID)
 
@@ -173,9 +173,6 @@ render  x x        -   -   x  x x x
 
 		*/
 
-
-func (rbb *RollbackBuffer) rectifyFrameData(fd *FrameData, inputQ []input) {
-}
 
 
 func copyCurrentFrameData(b *[MapH+1][MapW+1]Cell, snakes []*Snake, frameID uint16) FrameData {
