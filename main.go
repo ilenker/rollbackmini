@@ -110,6 +110,7 @@ func main() {
 	} 
 	render(scr, 2, 2)
 
+	<-inputFromPeerCh
 							/*##############*/
 
 	// qwfploop
@@ -121,6 +122,9 @@ func main() {
 		// Check for peer inputs
 		select {
 		case pP := <-inputFromPeerCh:
+			if pP.frameID < 16 {
+				goto SkipRollback
+			}
 
 			// Case of "reporting no inputs"
 			if string(pP.content[:]) == "____" {
@@ -147,7 +151,10 @@ func main() {
 		rollbackBuffer.pushFrame(copyCurrentFrameData(&board, snakes, SIM_FRAME))
 
 		if online {  
-			packetsToPeerCh <-makePeerPacket(SIM_FRAME, snakes[LOCAL].inputQ)
+			select {
+			case packetsToPeerCh <-makePeerPacket(SIM_FRAME, snakes[LOCAL].inputQ):
+			default:	
+			}
 		}  
 
 		ROLLBACK = false
@@ -171,11 +178,6 @@ func main() {
 		// Don't Block
 		}
 
-		select {
-		case FrameSyncCh <-true:
-		default:
-		// Don't Block
-		}
 
 		render(scr, 2, 2)
 

@@ -94,9 +94,6 @@ func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket)
 	for {
 		// From main thread...
 		pP := <-outboundPackets
-		if pP.frameID < 15 {
-			continue
-		}
 
 		input := peerPacketToBytes(pP)
 
