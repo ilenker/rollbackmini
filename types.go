@@ -81,7 +81,6 @@ type Snake struct {
 	subcellDebt int16
 	inputQ []signal
 	stateID cellState
-	player int
 	isLocal bool
 	shooting bool
 	shootDir Vec2

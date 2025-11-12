@@ -6,7 +6,7 @@ import (
 	"os"
 	"runtime"
 	"time"
-	//"math/rand"
+	"math/rand"
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -82,8 +82,6 @@ func main() {
 
 	snakes[PLAYER_1] = snakeMake(Vec2{(MapW/2) ,  7 + MapH/2}, L, P1Head)
 	snakes[PLAYER_2] = snakeMake(Vec2{(MapW/2) , -8 + MapH/2}, R, P2Head)
-	snakes[PLAYER_1].player = 0
-	snakes[PLAYER_2].player = 1
 	snakes[PLAYER_1].shootDir = Vec2{0, -1}
 	snakes[PLAYER_2].shootDir = Vec2{0,  1}
 	snakes[LOCAL].isLocal = true
@@ -125,7 +123,7 @@ func main() {
 		case pP := <-inputFromPeerCh:
 
 			// Case of "reporting no inputs"
-			if pP.content[0] == '_' {
+			if string(pP.content[:]) == "____" {
 				goto SkipRollback
 			}
 
@@ -147,6 +145,7 @@ func main() {
 		// The frame is "unsimulated", but it contains
 		// all the information needed to simulate it.
 		rollbackBuffer.pushFrame(copyCurrentFrameData(&board, snakes, SIM_FRAME))
+
 		if online {  
 			packetsToPeerCh <-makePeerPacket(SIM_FRAME, snakes[LOCAL].inputQ)
 		}  
@@ -162,7 +161,8 @@ func main() {
 		select {
 		case pP := <-replyFromPeerCh:
 			if pP.content[0] == 'H' {
-				//go hitEffect(hitPos, 2 * rand.Float64())
+				go hitEffect(snakes[PEER].pos, 2 * rand.Float64(),
+					beamCols[snakes[PEER].stateID])
 				//go hitEffect(hitPos, 2 * rand.Float64())
 				//go hitEffect(hitPos, 2 * rand.Float64())
 				//go hitEffect(hitPos, 2 * rand.Float64())

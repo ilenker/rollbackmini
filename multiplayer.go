@@ -94,7 +94,7 @@ func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket)
 	for {
 		// From main thread...
 		pP := <-outboundPackets
-		if pP.frameID < 50 {
+		if pP.frameID < 15 {
 			continue
 		}
 

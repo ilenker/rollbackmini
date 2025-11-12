@@ -208,6 +208,9 @@ func snakeCopy(src *Snake) *Snake {
 		subcellDebt: src.subcellDebt,
 		inputQ: 	 src.inputQ,
 		stateID:	 src.stateID,
+		isLocal:     src.isLocal,
+		shooting:    src.shooting,
+		shootDir:    src.shootDir,
 	}
 	return newSnake
 }
