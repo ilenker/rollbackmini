@@ -127,9 +127,9 @@ func main() {
 			}
 
 			// Case of "reporting no inputs"
-			if string(pP.content[:]) == "____" {
-				goto SkipRollback
-			}
+			//if string(pP.content[:]) == "____" {
+			//	goto SkipRollback
+			//}
 
 			// Case of "reporting some inputs"
 			ROLLBACK = true
@@ -215,8 +215,7 @@ func updateLogic(snakes []*Snake) {
 
 	for _, s := range snakes {
 		if s.shooting {
-			s.
-				shoot()
+			s.shoot()
 			s.shooting = false
 		}
 	}

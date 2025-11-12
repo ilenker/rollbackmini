@@ -91,7 +91,6 @@ func (rbb *RollbackBuffer) pushFrame(frame FrameData) {
 // So we go to that frame, resim *everything* from there onwards.
 func (rbb *RollbackBuffer) resimFramesWithNewInputs(frameID uint16, inputQBytes []byte, b *[MapH+1][MapW+1]Cell, snakes []*Snake) {
 
-	debugBox("\\clr")
 	rollbackFrame := FrameData{}
 	resimFromBufferIdx := 0
 	frameExists := false
@@ -145,7 +144,7 @@ func (rbb *RollbackBuffer) resimFramesWithNewInputs(frameID uint16, inputQBytes 
 
 		currentFrameID++
 		
-		if currentFrameID == rbb.latestFrameID + 1 {
+		if currentFrameID == rbb.latestFrameID {
 			avgRollback = calcAvgRollback(i_)
 			return
 		}
