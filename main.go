@@ -161,7 +161,6 @@ func main() {
 				go hitEffect(hitPos, 2 * rand.Float64())
 				go hitEffect(hitPos, 2 * rand.Float64())
 			}
-			delete(hitConfirms, pP.frameID)
 		default:
 		// Don't Block
 		}
@@ -354,10 +353,10 @@ func controlSnake(s *Snake, isResim bool) {
 				go beamEffect(s.pos, end, dir)
 				if hit {
 					packetsToPeerCh <-PeerPacket{ RESIM_FRAME, [4]byte{ 'H', '_', '_', '_' }}
-					go hitEffect(snakes[LOCAL].pos, 2 * rand.Float64())
-					go hitEffect(snakes[LOCAL].pos, 2 * rand.Float64())
-					go hitEffect(snakes[LOCAL].pos, 2 * rand.Float64())
-					go hitEffect(snakes[LOCAL].pos, 2 * rand.Float64())
+					go hitEffect(end, 2 * rand.Float64())
+					go hitEffect(end, 2 * rand.Float64())
+					go hitEffect(end, 2 * rand.Float64())
+					go hitEffect(end, 2 * rand.Float64())
 				}
 				if !hit {
 					packetsToPeerCh <-PeerPacket{ RESIM_FRAME, [4]byte{ 'M', '_', '_', '_' }}
