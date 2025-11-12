@@ -302,68 +302,68 @@ func drainInputChToSnake(inputCh chan signal, s []*Snake, snakeID int) {
 func controlSnake(s *Snake, isResim bool) {
 
 	var otherPos Vec2
-	if LOCAL == PLAYER_1 {
-		otherPos = snakes[PLAYER_2].pos
+	if s.isLocal {
+		otherPos = snakes[PEER].pos
 	}
 
-	if LOCAL == PLAYER_2 {
-		otherPos = snakes[PLAYER_1].pos
+	if !s.isLocal {
+		otherPos = snakes[LOCAL].pos
 	}
-
 
 	input, ok := s.popInput()
-	if ok {
-		switch input {
-		case iRight:
-			s.dir = R
+	if !ok { return } 
 
-		case iLeft:
-			s.dir = L
+	switch input {
+	case iRight:
+		s.dir = R
 
-		case iShot:
-			var hit bool
-			var dir Vec2
-			hit = (s.pos.x == otherPos.x)
-			end := s.pos
+	case iLeft:
+		s.dir = L
 
-			if s.stateID == P1Head {
-				dir = Vec2{0, -1}
-				end.y = 0 
-			}
+	case iShot:
+		var hit bool
+		var dir Vec2
+		hit = (s.pos.x == otherPos.x)
+		end := s.pos
 
-			if s.stateID == P2Head {
-				dir = Vec2{0, 1}
-				end.y = MapH
-			}
-
-			if hit {
-				end.y = otherPos.y
-			}
-
-			// 1. When local simulates live shot:
-			if s.isLocal && !isResim {
-				go beamEffect(s.pos, end, dir)
-				if hit {
-					hitConfirms[SIM_FRAME] = HitConfirm{ end, false }
-				}
-			}
-
-			//2. When local resimulates peer shot:
-			if !s.isLocal && isResim {
-				go beamEffect(s.pos, end, dir)
-				if hit {
-					packetsToPeerCh <-PeerPacket{ RESIM_FRAME, [4]byte{ 'H', '_', '_', '_' }}
-					go hitEffect(end, 2 * rand.Float64())
-					go hitEffect(end, 2 * rand.Float64())
-					go hitEffect(end, 2 * rand.Float64())
-					go hitEffect(end, 2 * rand.Float64())
-				}
-				if !hit {
-					packetsToPeerCh <-PeerPacket{ RESIM_FRAME, [4]byte{ 'M', '_', '_', '_' }}
-				}
-			}
-
+		if s.stateID == P1Head {
+			dir = Vec2{0, -1}
+			end.y = 0 
 		}
+
+		if s.stateID == P2Head {
+			dir = Vec2{0, 1}
+			end.y = MapH
+		}
+
+		if hit {
+			end.y = otherPos.y
+		}
+
+		// 1. When local simulates live shot:
+		if s.isLocal && !isResim {
+			go beamEffect(s.pos, end, dir)
+			if hit {
+				hitConfirms[SIM_FRAME] = HitConfirm{ otherPos, false }
+			}
+			return
+		}
+
+		//2. When local resimulates peer shot:
+		if !s.isLocal {
+			go beamEffect(s.pos, end, dir)
+			if hit {
+				packetsToPeerCh <-PeerPacket{ RESIM_FRAME, [4]byte{ 'H', '_', '_', '_' }}
+				go hitEffect(snakes[LOCAL].pos, 2 * rand.Float64())
+				go hitEffect(snakes[LOCAL].pos, 2 * rand.Float64())
+				go hitEffect(snakes[LOCAL].pos, 2 * rand.Float64())
+				go hitEffect(snakes[LOCAL].pos, 2 * rand.Float64())
+			}
+			if !hit {
+				packetsToPeerCh <-PeerPacket{ RESIM_FRAME, [4]byte{ 'M', '_', '_', '_' }}
+			}
+		}
+
 	}
 }
 
