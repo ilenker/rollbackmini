@@ -6,13 +6,13 @@ import (
 	"os"
 	"runtime"
 	"time"
-	"math/rand"
+	//"math/rand"
 	"github.com/gdamore/tcell/v2"
 )
 
 var MOVES_PER_TICK int
-var LastInputT time.Time
 var SIM_TIME time.Duration
+var ROLLBACK bool = false
 const SCPT = 64
 const RB_BUFFER_LEN = 15
 
@@ -82,6 +82,10 @@ func main() {
 
 	snakes[PLAYER_1] = snakeMake(Vec2{(MapW/2) ,  7 + MapH/2}, L, P1Head)
 	snakes[PLAYER_2] = snakeMake(Vec2{(MapW/2) , -8 + MapH/2}, R, P2Head)
+	snakes[PLAYER_1].player = 0
+	snakes[PLAYER_2].player = 1
+	snakes[PLAYER_1].shootDir = Vec2{0, -1}
+	snakes[PLAYER_2].shootDir = Vec2{0,  1}
 	snakes[LOCAL].isLocal = true
 	snakes[PEER ].isLocal = false
 
@@ -120,14 +124,15 @@ func main() {
 		select {
 		case pP := <-inputFromPeerCh:
 
-
 			// Case of "reporting no inputs"
 			if pP.content[0] == '_' {
 				goto SkipRollback
 			}
 
 			// Case of "reporting some inputs"
+			ROLLBACK = true
 			rollbackBuffer.resimFramesWithNewInputs(pP.frameID, pP.content[:], &board, snakes)
+			ROLLBACK = false
 
 		default:
 		// Don't block
@@ -146,7 +151,9 @@ func main() {
 			packetsToPeerCh <-makePeerPacket(SIM_FRAME, snakes[LOCAL].inputQ)
 		}  
 
-		updateLogic(snakes, false)
+		ROLLBACK = false
+		updateLogic(snakes)
+		ROLLBACK = false
 
 		SIM_FRAME++
 		_dMicroSec = avgSimT(time.Since(startT))
@@ -155,11 +162,10 @@ func main() {
 		select {
 		case pP := <-replyFromPeerCh:
 			if pP.content[0] == 'H' {
-				hitPos := hitConfirms[pP.frameID].pos
-				go hitEffect(hitPos, 2 * rand.Float64())
-				go hitEffect(hitPos, 2 * rand.Float64())
-				go hitEffect(hitPos, 2 * rand.Float64())
-				go hitEffect(hitPos, 2 * rand.Float64())
+				//go hitEffect(hitPos, 2 * rand.Float64())
+				//go hitEffect(hitPos, 2 * rand.Float64())
+				//go hitEffect(hitPos, 2 * rand.Float64())
+				//go hitEffect(hitPos, 2 * rand.Float64())
 			}
 		default:
 		// Don't Block
@@ -181,7 +187,7 @@ func main() {
 // Could be local user, multiplayer peer, bot
 // This only updates the snake state.
 // We'll see how this works out (input validation based on board state?)
-func updateLogic(snakes []*Snake, isResim bool) {
+func updateLogic(snakes []*Snake) {
 
 	for _, s := range snakes {
 		subcellBudget := s.scpt - s.subcellDebt
@@ -192,7 +198,7 @@ func updateLogic(snakes []*Snake, isResim bool) {
 				break
 			}
 
-			controlSnake(s, isResim)
+			controlSnake(s)
 
 			cellSet(&board, s.pos, Empty)
 
@@ -202,6 +208,14 @@ func updateLogic(snakes []*Snake, isResim bool) {
 
 			subcellBudget -= SUBCELL_SIZE
 			MOVES_PER_TICK++
+		}
+	}
+
+	for _, s := range snakes {
+		if s.shooting {
+			s.
+				shoot()
+			s.shooting = false
 		}
 	}
 }
@@ -299,16 +313,7 @@ func drainInputChToSnake(inputCh chan signal, s []*Snake, snakeID int) {
 }
 
 
-func controlSnake(s *Snake, isResim bool) {
-
-	var otherPos Vec2
-	if s.isLocal {
-		otherPos = snakes[PEER].pos
-	}
-
-	if !s.isLocal {
-		otherPos = snakes[LOCAL].pos
-	}
+func controlSnake(s *Snake) {
 
 	input, ok := s.popInput()
 	if !ok { return } 
@@ -321,50 +326,9 @@ func controlSnake(s *Snake, isResim bool) {
 		s.dir = L
 
 	case iShot:
-		var hit bool
-		var dir Vec2
-		hit = (s.pos.x == otherPos.x)
-		end := s.pos
-
-		if s.stateID == P1Head {
-			dir = Vec2{0, -1}
-			end.y = 0 
-		}
-
-		if s.stateID == P2Head {
-			dir = Vec2{0, 1}
-			end.y = MapH
-		}
-
-		if hit {
-			end.y = otherPos.y
-		}
-
-		// 1. When local simulates live shot:
-		if s.isLocal && !isResim {
-			go beamEffect(s.pos, end, dir)
-			if hit {
-				hitConfirms[SIM_FRAME] = HitConfirm{ otherPos, false }
-			}
-			return
-		}
-
-		//2. When local resimulates peer shot:
-		if !s.isLocal {
-			go beamEffect(s.pos, end, dir)
-			if hit {
-				packetsToPeerCh <-PeerPacket{ RESIM_FRAME, [4]byte{ 'H', '_', '_', '_' }}
-				go hitEffect(snakes[LOCAL].pos, 2 * rand.Float64())
-				go hitEffect(snakes[LOCAL].pos, 2 * rand.Float64())
-				go hitEffect(snakes[LOCAL].pos, 2 * rand.Float64())
-				go hitEffect(snakes[LOCAL].pos, 2 * rand.Float64())
-			}
-			if !hit {
-				packetsToPeerCh <-PeerPacket{ RESIM_FRAME, [4]byte{ 'M', '_', '_', '_' }}
-			}
-		}
-
+		s.shooting = true
 	}
+
 }
 
 /* Hit Confirm Rules:
@@ -411,27 +375,29 @@ func cellGet(board *[MapH+1][MapW+1]Cell, vec Vec2) *Cell {
 
 
 func stylesInit() {
-	ColBlack := tcell.NewRGBColor(30,  11,  30)
-	ColEmpty   = tcell.StyleDefault.Foreground(ColBlack              ).Background(ColBlack)
-	ColP1Head  = tcell.StyleDefault.Foreground(tcell.ColorBlue       ).Background(ColBlack)
-	ColP2Head  = tcell.StyleDefault.Foreground(tcell.ColorOrange     ).Background(ColBlack)
-	ColDefault = tcell.StyleDefault.Foreground(tcell.ColorWhiteSmoke ).Background(ColBlack)
+	ColEmpty   = tcell.StyleDefault.Foreground(tcell.ColorBlack     ).Background(tcell.ColorBlack)
+	ColP1Head  = tcell.StyleDefault.Foreground(tcell.ColorBlue      ).Background(tcell.ColorBlack)
+	ColP2Head  = tcell.StyleDefault.Foreground(tcell.ColorOrange    ).Background(tcell.ColorBlack)
+	ColDefault = tcell.StyleDefault.Foreground(tcell.ColorWhiteSmoke).Background(tcell.ColorBlack)
 
-	ColShot1C  = tcell.StyleDefault.Foreground(tcell.ColorWhite      ).Background(ColBlack)
-	ColShot2C  = tcell.StyleDefault.Foreground(tcell.ColorDarkRed    ).Background(ColBlack)
-	ColShot3C  = tcell.StyleDefault.Foreground(tcell.NewRGBColor( 60,  13,  16)    ).Background(ColBlack)
-	ColShot4C  = tcell.StyleDefault.Foreground(tcell.NewRGBColor( 49,  11,  12)    ).Background(ColBlack)
+	ColWhite    = tcell.StyleDefault.Foreground(tcell.ColorWhite    ).Background(tcell.ColorBlack)
+	ColShotP1C  = tcell.StyleDefault.Foreground(tcell.ColorBlue  ).Background(tcell.ColorBlack)
+	ColShotP2C  = tcell.StyleDefault.Foreground(tcell.ColorOrange     ).Background(tcell.ColorBlack)
+	ColShot2C  = tcell.StyleDefault.Foreground(tcell.NewRGBColor( 60,  13,  16)    ).Background(tcell.ColorBlack)
+	ColShot3C  = tcell.StyleDefault.Foreground(tcell.NewRGBColor( 49,  11,  12)    ).Background(tcell.ColorBlack)
 
 	cols = map[colorID]tcell.Style{
-		EmptyC  : ColEmpty  ,
-		P1HeadC : ColP1Head ,
-		P2HeadC : ColP2Head ,
-		WallC   : ColDefault,
+		EmptyC   : ColEmpty  ,
+		P1HeadC  : ColP1Head ,
+		P2HeadC  : ColP2Head ,
+		WallC    : ColDefault,
 		
-		_Shot1C : ColShot1C, 
-		_Shot2C : ColShot2C, 
-		_Shot3C : ColShot3C, 
-		_Shot4C : ColShot4C, 
+		_WhiteC  : ColWhite,
+		_ShotP1C : ColShotP1C, 
+		_ShotP2C : ColShotP2C, 
+
+		_Shot2C  : ColShot2C, 
+		_Shot3C  : ColShot3C, 
 	}
 
 }

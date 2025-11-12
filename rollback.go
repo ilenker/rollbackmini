@@ -134,7 +134,7 @@ func (rbb *RollbackBuffer) resimFramesWithNewInputs(frameID uint16, inputQBytes 
 
 		// Resim with new inputs
 		RESIM_FRAME = currentFrameID
-		updateLogic(snakes, true)
+		updateLogic(snakes)
 
 		rbb.frames[i % RB_BUFFER_LEN] = copyCurrentFrameData(&board, snakes, currentFrameID)
 

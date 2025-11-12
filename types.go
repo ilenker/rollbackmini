@@ -81,7 +81,10 @@ type Snake struct {
 	subcellDebt int16
 	inputQ []signal
 	stateID cellState
+	player int
 	isLocal bool
+	shooting bool
+	shootDir Vec2
 }
 
 
@@ -115,16 +118,40 @@ func (s *Snake) tryInput(inp signal) bool {
 	return false
 }
 
+func (s *Snake) shoot() {
+	distance := 20
+	other := &Snake{}
+	for _, snake := range snakes {
+		if snake != s { other = snake; break }
+	}
+
+	if other.pos.x == s.pos.x {
+		distance = AbsInt(other.pos.y - s.pos.y) - 1
+
+		if ROLLBACK && !s.isLocal {
+			packetsToPeerCh <- PeerPacket{
+				0, [4]byte{'H'},
+			}
+			go beamEffect(s.pos, distance, s.shootDir, beamCols[s.stateID])
+		}
+
+	} 
+	go beamEffect(s.pos, distance, s.shootDir, beamCols[s.stateID])
+
+}
+
 
 var ColEmpty   tcell.Style
 var ColP1Head  tcell.Style
 var ColP2Head  tcell.Style
 var ColDefault tcell.Style
 
-var ColShot1C  tcell.Style
+var ColWhite   tcell.Style
+
+var ColShotP1C tcell.Style
+var ColShotP2C tcell.Style
 var ColShot2C  tcell.Style
 var ColShot3C  tcell.Style
-var ColShot4C  tcell.Style
 
 const (
 	Empty cellState = iota
@@ -139,13 +166,23 @@ const (
 	P2HeadC
 	WallC
 
-	_Shot1C
+	_WhiteC
+
+	_ShotP1C
+	_ShotP2C
+
 	_Shot2C
 	_Shot3C
-	_Shot4C
 )
 
 var cols map[colorID]tcell.Style
+
+var beamCols = map[cellState][]colorID {
+	P1Head: p1BeamCols,
+	P2Head: p2BeamCols,
+}
+
+
 
 
 func assert(a any, b any, aName, bName string) {
@@ -168,8 +205,6 @@ var errorBox func(msg string, args ...int)
 
 var SIM_FRAME uint16 = 1
 var RESIM_FRAME uint16 = 1
-
-var ROLLBACK bool
 
 var inputName = map[signal]string {
 	iRight: "right",

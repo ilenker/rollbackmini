@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func AbsInt8(n int8) int8 {
+func AbsInt(n int) int {
 	if n < 0 {
 		return ^n + 1
 	}
