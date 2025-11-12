@@ -127,9 +127,9 @@ func main() {
 			}
 
 			// Case of "reporting no inputs"
-			//if string(pP.content[:]) == "____" {
-			//	goto SkipRollback
-			//}
+			if string(pP.content[:]) == "____" {
+				goto SkipRollback
+			}
 
 			// Case of "reporting some inputs"
 			ROLLBACK = true
@@ -209,7 +209,6 @@ func updateLogic(snakes []*Snake) {
 			cellSet(&board, s.pos, s.stateID)
 
 			subcellBudget -= SUBCELL_SIZE
-			MOVES_PER_TICK++
 		}
 	}
 
