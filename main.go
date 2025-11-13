@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"time"
 	"github.com/gdamore/tcell/v2"
@@ -48,9 +49,11 @@ func main() {
 		<-inputFromPeerCh
 	}
 
+
 	localInputCh := make(chan signal, 8)
 	go readLocalInputs(localInputCh)
 
+	<-inputFromPeerCh
 	simTick := time.NewTicker(SIM_TIME)
 
 	render(scr, 2, 2)
@@ -63,6 +66,11 @@ func main() {
 
 		select {
 		case pPacket := <-inputFromPeerCh:
+			errorBox(fmt.Sprintf("inc:%c\n", pPacket.content[0]))
+			if pPacket.frameID < 5 {
+				errorBox("skip\n")
+				goto SkipRollback
+			}
 
 			// Case of "reporting no inputs"
 			if string(pPacket.content[:]) == "____" {

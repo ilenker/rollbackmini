@@ -112,6 +112,9 @@ func DrawMessages(scr tcell.Screen, xOrigin, yOrigin, width, height int, drawBox
 				}
 			} else {
 				y++     
+				if y > height {
+					y = yO
+				}
 				x = xO  // Carriage Return
 			}
 		}
