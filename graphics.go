@@ -46,20 +46,39 @@ var ColShot3C  tcell.Style
 var p1BeamCols = []colorID {
 	_WhiteC,
 	_ShotP1C,
+	_Shot2C,
+	_Shot3C,
+}
+
+var p1HitCols = []colorID {
 	_ShotP1C,
 	_ShotP1C,
+	_Shot2C,
+	_Shot3C,
 }
 
 var p2BeamCols = []colorID {
 	_WhiteC,
 	_ShotP2C,
 	_ShotP2C,
+	_Shot3C,
+}
+
+var p2HitCols = []colorID {
 	_ShotP2C,
+	_ShotP2C,
+	_Shot2C,
+	_Shot3C,
 }
 
 var beamCols = map[cellState][]colorID{
 	P1Head : p1BeamCols,
 	P2Head : p2BeamCols,
+}
+
+var hitCols = map[cellState][]colorID{
+	P1Head : p1HitCols,
+	P2Head : p2HitCols,
 }
 
 func stylesInit() {
@@ -95,7 +114,7 @@ func stylesInit() {
 func beamEffect(start Vec2, dist int, dir Vec2, colorSeq []colorID) {
 
 	start = start.Add(dir)
-	animLen := 17
+	animLen := 26
 
 	animate := func(col colorID, pos Vec2, d int, delay time.Duration, chance int) {
 		for range animLen {
@@ -134,9 +153,11 @@ func beamEffect(start Vec2, dist int, dir Vec2, colorSeq []colorID) {
 
 func hitEffect(start Vec2, baseturns float64, colorSeq []colorID) {
 
-	animLen := 3 + rand.Intn(8)
+	baseturns += -0.3 + rand.Float64() * 0.6
+
+	animLen := 3 + rand.Intn(10)
 	turns := baseturns
-	curve := -0.1 + rand.Float64() * 0.2
+	curve := -0.05 + rand.Float64() * 0.1
 
 	animate := func(col colorID, pos Vec2, delay time.Duration, chance int, after bool) {
 		for range animLen {
@@ -156,8 +177,8 @@ func hitEffect(start Vec2, baseturns float64, colorSeq []colorID) {
 		}
 
 		if after {
-			//go hitEffect2nd(pos, 2 * rand.Float64())
-			//go hitEffect2nd(pos, 2 * rand.Float64())
+			go hitEffect2nd(pos, 2 * rand.Float64(), colorSeq)
+			go hitEffect2nd(pos, 2 * rand.Float64(), colorSeq)
 		}
 		turns = baseturns
 
@@ -183,8 +204,7 @@ func hitEffect(start Vec2, baseturns float64, colorSeq []colorID) {
 
 }
 
-
-func hitEffect2nd(start Vec2, baseturns float64) {
+func hitEffect2nd(start Vec2, baseturns float64, colorSeq []colorID) {
 
 	animLen := 0 + rand.Intn(5)
 
@@ -210,12 +230,12 @@ func hitEffect2nd(start Vec2, baseturns float64) {
 	}
 
 	// Frame 1
-	animate(_ShotP1C, start, 0, 20)
+	animate(colorSeq[0], start, 0, 20)
 	time.Sleep(SIM_TIME)
 	time.Sleep(SIM_TIME)
 
-	animate(_Shot2C, start, 0, 15)
-	animate(_Shot3C, start, 1, 20)
+	animate(colorSeq[1], start, 0, 15)
+	animate(colorSeq[2], start, 1, 20)
 	animate(EmptyC, start,  3, 10)
 	animate(EmptyC, start,  3, 15)
 	animate(EmptyC, start,  3, 20)

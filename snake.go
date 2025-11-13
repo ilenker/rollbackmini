@@ -40,6 +40,12 @@ func (s *Snake) tryInput(input signal) bool {
 	if input == iNone || input == 0 {
 		return true
 	}
+	if input == iRight && s.dir == R {
+		return true
+	}
+	if input == iLeft && s.dir == L {
+		return true
+	}
 	
 	s.inputIndex++
 	s.inputBuffer[s.inputIndex] = input
@@ -61,7 +67,7 @@ func (s *Snake) shoot() {
 	if !s.shooting {
 		return
 	}
-	distance := 20
+	distance := 32
 
 	other := player2
 	if s.stateID == P2Head {
@@ -72,10 +78,15 @@ func (s *Snake) shoot() {
 		distance = AbsInt(other.pos.y - s.pos.y) - 1
 
 		if ROLLBACK && !s.isLocal {
-			//packetsToPeerCh <- PeerPacket{
-				//0, [4]signal{'H'},
-			//}
-			//go beamEffect(s.pos, distance, s.shootDir, beamCols[s.stateID])
+			dir := 1.5
+			if other.stateID == P1Head { dir = 0.5 }
+			packetsToPeerCh <-PeerPacket{
+				0, [4]signal{iHit},
+			}
+			go hitEffect(other.pos, dir, beamCols[other.stateID])
+			go hitEffect(other.pos, dir, beamCols[other.stateID])
+			go hitEffect(other.pos, dir, beamCols[other.stateID])
+			go hitEffect(other.pos, dir, beamCols[other.stateID])
 		}
 
 	} 

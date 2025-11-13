@@ -135,6 +135,9 @@ func (rbb *RollbackBuffer) resimFramesWithNewInputs(pPacket PeerPacket) {
 		
 		errorBox(fmt.Sprintf("resim: %3d\n", currentRollbackFrameID))
 
+		//render(scr, 2, 2)
+		//Break()
+
 		if currentRollbackFrameID == rbb.latestFrameID + 1{
 			return
 		}

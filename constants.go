@@ -40,7 +40,7 @@ const (
 
 
 // Map settings
-const MapH = 20
+const MapH = 30
 const MapW = 20 * 2
 const SUBCELL_SIZE = 32
 

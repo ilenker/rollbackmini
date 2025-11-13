@@ -37,8 +37,8 @@ func main() {
 	boardInit()
 	textBoxesInit()
 
-	player1 = snakeMake(Vec2{(MapW/2) ,  7 + MapH/2}, R, P1Head)
-	player2 = snakeMake(Vec2{(MapW/2) , -8 + MapH/2}, R, P2Head)
+	player1 = snakeMake(Vec2{(MapW/2) ,  6 + MapH/2}, R, P1Head)
+	player2 = snakeMake(Vec2{(MapW/2) , -7 + MapH/2}, R, P2Head)
 	loadConfig("config.json")
 
 	inputFromPeerCh = make(chan PeerPacket, 128)
@@ -49,11 +49,11 @@ func main() {
 		<-inputFromPeerCh
 	}
 
-
 	localInputCh := make(chan signal, 8)
 	go readLocalInputs(localInputCh)
 
-	<-inputFromPeerCh
+	if online {<-inputFromPeerCh}
+
 	simTick := time.NewTicker(SIM_TIME)
 
 	render(scr, 2, 2)
@@ -64,10 +64,17 @@ func main() {
 
 		<-simTick.C
 
+		if SIM_FRAME == 100 {
+			inputFromPeerCh <- PeerPacket{
+				frameID: 90,
+				content: [4]signal{iLeft, iShot, iNone, iNone},
+			}
+		}
+
 		select {
 		case pPacket := <-inputFromPeerCh:
 			if pPacket.frameID < 5 {
-				errorBox("skip\n")
+				errorBox("skip", 0, 0)
 				goto SkipRollback
 			}
 
@@ -76,7 +83,7 @@ func main() {
 			   pPacket.content[0] == 0 {
 				goto SkipRollback
 			}
-			errorBox(fmt.Sprintf("inc:%c\n", pPacket.content[0]))
+			errorBox(fmt.Sprintf("inc:%c", pPacket.content[0]), 5, 0)
 
 			// Case of "reporting some inputs"
 			ROLLBACK = true
@@ -99,6 +106,21 @@ func main() {
 
 		variableDisplay()
 		SIM_FRAME++
+
+		select {
+		case reply := <-replyFromPeerCh:
+			if reply.content[0] == iHit {
+				other := getPeerPlayerPtr()
+				dir := 1.5
+				if other.stateID == P1Head { dir = 0.5 }
+
+				go hitEffect(other.pos, dir, beamCols[other.stateID])
+				go hitEffect(other.pos, dir, beamCols[other.stateID])
+				go hitEffect(other.pos, dir, beamCols[other.stateID])
+				go hitEffect(other.pos, dir, beamCols[other.stateID])
+			}
+		default:
+		}
 
 		render(scr, 2, 2)
 	}
@@ -238,7 +260,7 @@ func drainLocalInputCh(inputCh chan signal) {
 
 	full := false
 
-	for {
+	//for {
 		if full {
 			return
 		}
@@ -249,7 +271,7 @@ func drainLocalInputCh(inputCh chan signal) {
 		default:
 			return
 		}
-	} 
+	//} 
 
 }
 
