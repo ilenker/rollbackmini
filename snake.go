@@ -17,15 +17,19 @@ type Snake struct {
 }
 
 
-func (s *Snake) popInput() (signal) {
+func (s *Snake) popInput() signal {
 
 	if s.inputIndex < 0 {
 		return iNone
 	}
 
-	defer func() { s.inputIndex-- }()
+	input := s.inputBuffer[s.inputIndex]
 
-	return s.inputBuffer[s.inputIndex]
+	s.inputBuffer[s.inputIndex] = '_'
+
+	s.inputIndex--
+
+	return input
 } 
 
 
@@ -68,10 +72,10 @@ func (s *Snake) shoot() {
 		distance = AbsInt(other.pos.y - s.pos.y) - 1
 
 		if ROLLBACK && !s.isLocal {
-			packetsToPeerCh <- PeerPacket{
-				0, [4]signal{'H'},
-			}
-			go beamEffect(s.pos, distance, s.shootDir, beamCols[s.stateID])
+			//packetsToPeerCh <- PeerPacket{
+				//0, [4]signal{'H'},
+			//}
+			//go beamEffect(s.pos, distance, s.shootDir, beamCols[s.stateID])
 		}
 
 	} 
@@ -108,7 +112,7 @@ func snakeMake(start Vec2, d direction, stateID cellState) Snake{
 		shootDir = Vec2{0, 1}
 	}
 
-	inputBuffer := [4]signal{}
+	inputBuffer := [4]signal{'_', '_', '_', '_',}
 
 	snake := Snake{
 		pos: start,

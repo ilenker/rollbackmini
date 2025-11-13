@@ -61,6 +61,7 @@ func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket)
 	 // Wait for peer connection + information from rendezvous 
 	peerPubIP, _ := waitForRdvReply(rdvConn, &rdvAddr)
 
+
 	// This is just a local signal for now
 	// to unblock main thread when both peers are ready
 	inboundInputs <-PeerPacket{frameID:6969}
@@ -75,6 +76,7 @@ func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket)
 		rdvConn.Close()
 		return
 	}
+
 
 	fmt.Printf(" >> punching hole\n")
 	rdvConn.WriteToUDP([]byte("65535=6969"), premote)
@@ -119,7 +121,7 @@ func listenToPort(conn *net.UDPConn, inboundInputs, inboundReplies chan PeerPack
 
 		if peerPacket.content[0] == 'H' ||
 		   peerPacket.content[0] == 'M' {
-			inboundReplies  <-peerPacket
+			//inboundReplies <-peerPacket
 		} else {
 			inboundInputs  <-peerPacket
 		}
@@ -235,4 +237,30 @@ func sendCurrentFrameInputs() {
 		}
 	}  
 
+}
+
+func determinePlayers(me, peer *net.UDPAddr) {
+	ipFields := strings.Split(me.IP.String(), ".")
+	meScore := 0
+	peerScore := 0
+
+	for _, x := range ipFields {
+		arst, _ := strconv.Atoi(x)
+		meScore += arst
+	}
+
+	ipFields = strings.Split(peer.IP.String(), ".")
+	for _, x := range ipFields {
+		arst, _ := strconv.Atoi(x)
+		peerScore += arst
+	}
+
+	if meScore > peerScore {
+		LOCAL = 1
+		PEER = 2
+	}
+	if meScore < peerScore {
+		LOCAL = 2
+		PEER = 1
+	}
 }

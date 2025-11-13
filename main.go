@@ -66,17 +66,17 @@ func main() {
 
 		select {
 		case pPacket := <-inputFromPeerCh:
-			errorBox(fmt.Sprintf("inc:%c\n", pPacket.content[0]))
 			if pPacket.frameID < 5 {
 				errorBox("skip\n")
 				goto SkipRollback
 			}
 
 			// Case of "reporting no inputs"
-			if string(pPacket.content[:]) == "____" {
+			if pPacket.content[0] == iNone ||
+			   pPacket.content[0] == 0 {
 				goto SkipRollback
 			}
-			SkipRollback:
+			errorBox(fmt.Sprintf("inc:%c\n", pPacket.content[0]))
 
 			// Case of "reporting some inputs"
 			ROLLBACK = true
@@ -86,6 +86,8 @@ func main() {
 		default:
 		// Don't block
 		}
+
+		SkipRollback:
 
 		drainLocalInputCh(localInputCh)
 

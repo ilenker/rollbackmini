@@ -37,11 +37,15 @@ func loadConfig(filename string) {
 	LOCAL = config.LocalPlayer
 	if LOCAL == 1 {
 		PEER = 2
+		player1.isLocal = true
+		player2.isLocal = false
 		localPlayerPtr = &player1
 		peerPlayerPtr  = &player2
 	}
 	if LOCAL == 2 {
 		PEER = 1
+		player1.isLocal = false
+		player2.isLocal = true
 		localPlayerPtr = &player2
 		peerPlayerPtr  = &player1
 	}
