@@ -8,11 +8,10 @@ import (
 	"strconv"
 )
 
-var Debug bool
 
 type PeerPacket struct {
 	frameID uint16
-	content [4]byte
+	content [4]signal
 }
 
 /*
@@ -46,7 +45,6 @@ func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket)
 		Port: 55585,
 	}
 
-	Debug = false
 
 	localIP := GetOutboundIP()
 	laddr, err := net.ResolveUDPAddr("udp4", localIP.String() + ":0")
@@ -205,27 +203,36 @@ func bytesToPeerPacket(b []byte) PeerPacket {
 
 	packet := PeerPacket{
 		frameID: uint16(frameID),
-		content: [4]byte{
-			split[1][0],
-			split[1][1],
-			split[1][2],
-			split[1][3],
+		content: [4]signal{
+			signal(split[1][0]),
+			signal(split[1][1]),
+			signal(split[1][2]),
+			signal(split[1][3]),
 		},
 	}
 
 	return packet
 }
 
-func makePeerPacket(frameID uint16, content []signal) PeerPacket {
+func makePeerPacket(frameID uint16, content [4]signal) PeerPacket {
 
 	pP := PeerPacket{
 		frameID: frameID,
-		content: [4]byte{'_', '_', '_', '_'},
-	}
-
-	for i, b := range content {
-		pP.content[i] = byte(b)
+		content: content,
 	}
 
 	return pP
+}
+
+func sendCurrentFrameInputs() {
+
+	local := getLocalPlayerCopy()
+
+	if online {  
+		select {
+		case packetsToPeerCh <-makePeerPacket(SIM_FRAME, local.inputBuffer):
+		default:	
+		}
+	}  
+
 }

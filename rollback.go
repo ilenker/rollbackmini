@@ -5,9 +5,8 @@ import (
 	//"github.com/gdamore/tcell/v2"
 )
 
-var COPY_STATE = false
-var LOAD_STATE = false
 
+var rollbackBuffer RollbackBuffer
 var hitConfirms map[uint16]HitConfirm
 
 type HitConfirm	struct {
@@ -18,7 +17,8 @@ type HitConfirm	struct {
 type FrameData struct {
 	id uint16
 	board [MapH+1][MapW+1]Cell
-	snakesData []*Snake
+	local Snake
+	peer Snake
 }
 
 
@@ -31,12 +31,12 @@ type RollbackBuffer struct {
 
 func (rbb *RollbackBuffer) pushFrame(frame FrameData) {
 
-	debugBox(fmt.Sprintf("%x", rbb.idxLatest), 1 + rbb.idxLatest, 3)
-	if rbb.idxLatest == 0 { debugBox("                ", rbb.idxLatest, 4) }
-	debugBox(" ^", rbb.idxLatest, 4)
 
-	rbb.idxLatest = (rbb.idxLatest + 1) % RB_BUFFER_LEN
+	//debugBox(fmt.Sprintf("%x", rbb.idxLatest), 1 + rbb.idxLatest, 3)
+	//if rbb.idxLatest == 0 { debugBox("                ", rbb.idxLatest, 4) }
+	//debugBox(" ^", rbb.idxLatest, 4)
 	rbb.frames[rbb.idxLatest] = frame
+	rbb.idxLatest = (rbb.idxLatest + 1) % RB_BUFFER_LEN
 	rbb.latestFrameID = frame.id
 
 }
@@ -89,7 +89,7 @@ func (rbb *RollbackBuffer) pushFrame(frame FrameData) {
 // This function will be called on *each packet* that comes in
 // that conflicts with "no_input"
 // So we go to that frame, resim *everything* from there onwards.
-func (rbb *RollbackBuffer) resimFramesWithNewInputs(frameID uint16, inputQBytes []byte, b *[MapH+1][MapW+1]Cell, snakes []*Snake) {
+func (rbb *RollbackBuffer) resimFramesWithNewInputs(pPacket PeerPacket) {
 
 	rollbackFrame := FrameData{}
 	resimFromBufferIdx := 0
@@ -97,61 +97,50 @@ func (rbb *RollbackBuffer) resimFramesWithNewInputs(frameID uint16, inputQBytes 
 
 	// Search for the frame to be resimmed
 	for i := range RB_BUFFER_LEN {
-
-		if rbb.frames[i].id == frameID {
+		if rbb.frames[i].id == pPacket.frameID {
 			frameExists = true
 			resimFromBufferIdx = i
 			rollbackFrame = rbb.frames[i]
 			break
 		}
-
 	}
 
 	if !frameExists {
-		errorBox(fmt.Sprintf("Frame %04d not found", frameID), 0, 0)
+		errorBox(fmt.Sprintf("Frame %04d not found", pPacket.frameID), 0, 0)
 		return
+		//pPacket.content = [4]signal{95, 95, 95, 95}
+		//pPacket.frameID = SIM_FRAME
 	}
 
-	inputQ := make([]signal, len(inputQBytes))
-	for i, b := range inputQBytes {
-		inputQ[i] = signal(b)
+	for _, b := range pPacket.content {
+		rollbackFrame.peer.tryInput(b)
 	}
 
-	rollbackFrame.snakesData[PEER].inputQ = inputQ
-	currentFrameID := rollbackFrame.id
+	currentRollbackFrameID := rollbackFrame.id
 
-	loadFrameData(b, snakes, rollbackFrame)
+	loadFrameData(rollbackFrame)
 
 	// Resim from rollbackFrame, until latest frame 
 	i := resimFromBufferIdx
 	i_ := 0
 	for {
 
-		// Load saved state for local player from rollback frame
-		// This is the only info we take from a frame other than the correction frame.
-		snakes[LOCAL] = rbb.frames[i % RB_BUFFER_LEN].snakesData[LOCAL]
+		*getLocalPlayerPtr() = rbb.frames[i % RB_BUFFER_LEN].local
 
-		// Resim with new inputs
-		RESIM_FRAME = currentFrameID
-		updateLogic(snakes)
+		rbb.frames[i % RB_BUFFER_LEN] = copyCurrentFrameData(currentRollbackFrameID)
 
-		rbb.frames[i % RB_BUFFER_LEN] = copyCurrentFrameData(&board, snakes, currentFrameID)
+		simulate()
 
-		//debugBox(fmt.Sprintf("lclInQ%v  (f:%d)",
-		//	rbb.frames[i % RB_BUFFER_LEN].snakesData[LOCAL].inputQ,
-		//	currentFrameID), 0, 4 + i_)
-
-
-		currentFrameID++
+		currentRollbackFrameID++
 		
-		if currentFrameID == rbb.latestFrameID {
-			avgRollback = calcAvgRollback(i_)
+		errorBox(fmt.Sprintf("resim: %3d\n", currentRollbackFrameID))
+
+		if currentRollbackFrameID == rbb.latestFrameID + 1{
 			return
 		}
 
 		i++; i_++
 	}
-		
 }
 
 		/*
@@ -174,44 +163,25 @@ render  x x        -   -   x  x x x
 		*/
 
 
-
-func copyCurrentFrameData(b *[MapH+1][MapW+1]Cell, snakes []*Snake, frameID uint16) FrameData {
-	snakesData := make([]*Snake, len(snakes), cap(snakes))
-
-	for i, snake := range snakes {
-		snakesData[i] = snakeCopy(snake)
-	}
+func copyCurrentFrameData(frameID uint16) FrameData {
 
 	savedFrameData := FrameData {
 		id: frameID,
-		board: *b,
-		snakesData: snakesData,
+		board: board,
+		local: getLocalPlayerCopy(),
+		peer: getPeerPlayerCopy(),
 	}
 
 	return savedFrameData
 }
 
 
-func loadFrameData(b *[MapH+1][MapW+1]Cell, snakes []*Snake, fd FrameData) {
-	*b = fd.board	
-	snakes[LOCAL] = snakeCopy(fd.snakesData[LOCAL])
-	snakes[PEER ] = snakeCopy(fd.snakesData[PEER ])
-}
+func loadFrameData(fd FrameData) {
+	board = fd.board
 
+	*getLocalPlayerPtr() = fd.local
+	*getPeerPlayerPtr() = fd.peer
 
-func snakeCopy(src *Snake) *Snake {
-	newSnake := &Snake{
-		pos:         src.pos,
-		dir:         src.dir,
-		scpt:        src.scpt,
-		subcellDebt: src.subcellDebt,
-		inputQ: 	 src.inputQ,
-		stateID:	 src.stateID,
-		isLocal:     src.isLocal,
-		shooting:    src.shooting,
-		shootDir:    src.shootDir,
-	}
-	return newSnake
 }
 
 

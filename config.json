@@ -1,7 +1,6 @@
 {
-    "localPlayer": 0,
-    "moveSpeed": 8,
-    "rollbackWindow": 15,
+    "localPlayer": 1,
+    "moveSpeed": 4,
     "simulationSpeedMS": 16,
     "online": true
 }

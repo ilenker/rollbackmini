@@ -1,11 +1,15 @@
 package main
 
 import (
-	"fmt"
 	"time"
-	"strconv"
-	"strings"
+	"math"
 )
+
+type Vec2 struct {
+	x int
+	y int
+}
+
 
 func AbsInt(n int) int {
 	if n < 0 {
@@ -95,48 +99,36 @@ func makeAverageIntBuffer(size int) func(n int) float64 {
 	}
 }
 
-func timeF(d time.Duration) string {
-	str := fmt.Sprintf("%v", d)
-
-
-	if floatStr, found := strings.CutSuffix(str, "ms"); found {
-		f, _ := strconv.ParseFloat(floatStr, 64)
-		return fmt.Sprintf("%.2fms", f)
-	}
-
-	if floatStr, found := strings.CutSuffix(str, "µs"); found {
-		f, _ := strconv.ParseFloat(floatStr, 64)
-		return fmt.Sprintf("%.2fμs", f)
-	}
-
-	if floatStr, found := strings.CutSuffix(str, "s"); found {
-		f, _ := strconv.ParseFloat(floatStr, 64)
-		return fmt.Sprintf("%.2fs", f)
-	}
-
-
-	return str
-}
 
 func B2i(b bool) int {
 	if b { return 1 }
 	return 0
 }
 
-func intSeps(n int) string {
-	if n < 1000 {
-		return strconv.Itoa(n)
-	}
 
-	s := strconv.Itoa(n)
-	result := ""
-
-	for {
-		if len(s) <= 3 {
-			result = s + result
-			return result
-		}
-		result = "," + s[len(s)-3:] + result
-		s = s[:len(s)-3]
+func (v1 Vec2) Add(v2 Vec2) Vec2 {
+	newX := wrapInt(v1.x + v2.x, MapW)
+	newY := wrapInt(v1.y + v2.y, MapH)
+	return Vec2{
+		newX,
+		newY,
 	}
+}
+
+func (v1 Vec2) AddNoWrap(v2 Vec2) Vec2 {
+	return Vec2{
+		x: v1.x + v2.x,
+		y: v1.y + v2.y,
+	}
+}
+
+func (v1 Vec2) Translate(angleRad float64, distance float64) Vec2 {
+    
+    dx := distance * math.Cos(angleRad)
+    dy := distance * math.Sin(angleRad)
+    
+    newX := v1.x + int(math.Round(dx))
+    newY := v1.y + int(math.Round(dy))
+    
+    return Vec2{x: newX, y: newY}
 }
