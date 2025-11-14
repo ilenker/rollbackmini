@@ -20,6 +20,9 @@ const (
 
 	iHit   signal = 72  // H 
 	iMiss  signal = 77  // M
+
+	iPing  signal = 63  // ?
+	iPong  signal = 33  // !
 )
 
 

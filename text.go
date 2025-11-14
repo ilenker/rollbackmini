@@ -10,7 +10,7 @@ import (
 
 var debugBox func(msg string, args ...int)
 var errorBox func(msg string, args ...int)
-var variablePage int = 3
+var variablePage int = 4
 
 type Arg struct {
 	name string
@@ -60,6 +60,8 @@ func variableDisplay() {
 			Arg{"[ 9]:", rollbackBuffer.frames[ 9].id},
 			)
 	case 4:
+		displayVariables(Arg{"*Network*", ""},
+			Arg{"avgRTT:", fmt.Sprintf("%3dms", avgRTTuSec/1000)})
 	}
 }
 

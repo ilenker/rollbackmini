@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"log"
+	"time"
 	"strings"
 	"strconv"
 )
@@ -14,23 +15,11 @@ type PeerPacket struct {
 	content [4]signal
 }
 
-/*
-
-r u l d, h, p
-
-H M
-
-123456:LRS_
-
-123457:L___
-
-123458:____
-
-123450:H___
-123450:M___
-
-*/
-
+var pingCh chan PeerPacket
+var pongCh chan PeerPacket
+var pingTimes map[uint16]time.Time
+var rttBuffer func(time.Duration) int64
+var avgRTTuSec int64
 
 func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket) {
 	version := "v0.1"
@@ -61,7 +50,6 @@ func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket)
 	 // Wait for peer connection + information from rendezvous 
 	peerPubIP, _ := waitForRdvReply(rdvConn, &rdvAddr)
 
-
 	// This is just a local signal for now
 	// to unblock main thread when both peers are ready
 	inboundInputs <-PeerPacket{frameID:6969}
@@ -69,7 +57,7 @@ func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket)
 	fmt.Printf(" >> Peer found: [%s]\n", peerPubIP)
 
 	// After Server Connect
-    // Punch hole
+	// Punch hole
 	premote, err := net.ResolveUDPAddr("udp4", peerPubIP)
 	if err != nil {
 		fmt.Printf("(punch)address parse failed: %v\n", err)
@@ -81,9 +69,11 @@ func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket)
 	fmt.Printf(" >> punching hole\n")
 	rdvConn.WriteToUDP([]byte("65535=6969"), premote)
 
-
 	// Inbound loop thread
-	go listenToPort(rdvConn, inboundInputs, inboundReplies)
+	pingTimes = make(map[uint16]time.Time)
+	rttBuffer = makeAverageDurationBuffer(20)
+	go listenToPort(rdvConn, inboundInputs, inboundReplies, outboundPackets)
+	go sendPings(outboundPackets)
 
 	fmt.Printf(" >> Listening...\n\n")
 	fmt.Println("--- Launching SnakeCycles ---")
@@ -105,7 +95,7 @@ func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket)
 }
 
 
-func listenToPort(conn *net.UDPConn, inboundInputs, inboundReplies chan PeerPacket) error {
+func listenToPort(conn *net.UDPConn, inboundInputs, inboundReplies, outboundPackets chan PeerPacket) error {
 
 	defer conn.Close()
 
@@ -119,15 +109,27 @@ func listenToPort(conn *net.UDPConn, inboundInputs, inboundReplies chan PeerPack
 
 		peerPacket := bytesToPeerPacket(b[:n])
 
-		if peerPacket.content[0] == iHit ||
-		   peerPacket.content[0] == iMiss {
+
+		switch peerPacket.content[0] {
+		case iHit:
 			inboundReplies <-peerPacket
-		} else {
+		case iMiss:
+			inboundReplies <-peerPacket
+
+		case iPong:
+			avgRTTuSec = rttBuffer(processPong(peerPacket))
+		case iPing:
+			outboundPackets <-PeerPacket{
+				peerPacket.frameID,
+				[4]signal{iPong},
+			}
+
+		default:
 			inboundInputs  <-peerPacket
+
 		}
 
 	}
-
 }
 
 
@@ -183,7 +185,7 @@ func GetOutboundIP() net.IP {
     return localAddr.IP
 }
 
-//  {frameID: 12345, [L, R, _, _]} -> "12345=LR__"
+
 func peerPacketToBytes(p PeerPacket) []byte {
 	s := fmt.Sprintf("%05d=%1c%1c%1c%1c",
 		p.frameID,
@@ -195,7 +197,6 @@ func peerPacketToBytes(p PeerPacket) []byte {
 	return []byte(s)
 }
 
-// "12345=LR__" -> {frameID: 12345, [L, R, _, _]}
 func bytesToPeerPacket(b []byte) PeerPacket {
 	assert(len(b), 10, "len(b)", "10")
 	s := string(b)
@@ -239,28 +240,20 @@ func sendCurrentFrameInputs() {
 
 }
 
-func determinePlayers(me, peer *net.UDPAddr) {
-	ipFields := strings.Split(me.IP.String(), ".")
-	meScore := 0
-	peerScore := 0
+func sendPings(outboundPackets chan PeerPacket) {
+	pingTicker := time.NewTicker(time.Millisecond * 500)
 
-	for _, x := range ipFields {
-		arst, _ := strconv.Atoi(x)
-		meScore += arst
-	}
-
-	ipFields = strings.Split(peer.IP.String(), ".")
-	for _, x := range ipFields {
-		arst, _ := strconv.Atoi(x)
-		peerScore += arst
+	for {
+		<-pingTicker.C
+		currentFrame := SIM_FRAME
+		outboundPackets <-PeerPacket{currentFrame, [4]signal{iPing}}
+		pingTimes[currentFrame] = time.Now()
 	}
 
-	if meScore > peerScore {
-		LOCAL = 1
-		PEER = 2
-	}
-	if meScore < peerScore {
-		LOCAL = 2
-		PEER = 1
-	}
+}
+
+func processPong(pP PeerPacket) time.Duration {
+	sentTime, _ := pingTimes[pP.frameID]
+	
+	return time.Now().Sub(sentTime)
 }

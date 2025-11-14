@@ -64,13 +64,7 @@ func main() {
 
 		<-simTick.C
 
-		if SIM_FRAME == 100 {
-			inputFromPeerCh <- PeerPacket{
-				frameID: 90,
-				content: [4]signal{iLeft, iShot, iNone, iNone},
-			}
-		}
-
+/* ············································································· Network Inbound */
 		select {
 		case pPacket := <-inputFromPeerCh:
 			if pPacket.frameID < 5 {
@@ -86,6 +80,8 @@ func main() {
 			errorBox(fmt.Sprintf("inc:%c", pPacket.content[0]), 5, 0)
 
 			// Case of "reporting some inputs"
+/* ·····································································┬·············· Rollback */
+/*                                                                      └──Net Out - Hit Confirm */
 			ROLLBACK = true
 			rollbackBuffer.resimFramesWithNewInputs(pPacket)
 			ROLLBACK = false
@@ -96,17 +92,22 @@ func main() {
 
 		SkipRollback:
 
+/* ············································································Stage Local Input */
 		drainLocalInputCh(localInputCh)
 
+/* ·································································· Net Out - Send Local Input */
 		sendCurrentFrameInputs()
 
+/* ············································································· Push Save State */
 		rollbackBuffer.pushFrame(copyCurrentFrameData(SIM_FRAME))
 
+/* ···················································································· Simulate */
 		simulate()
 
 		variableDisplay()
 		SIM_FRAME++
 
+/* ············································································· Network Inbound */
 		select {
 		case reply := <-replyFromPeerCh:
 			if reply.content[0] == iHit {
@@ -114,6 +115,7 @@ func main() {
 				dir := 1.5
 				if other.stateID == P1Head { dir = 0.5 }
 
+/*                                                                                   Hit Confirm */
 				go hitEffect(other.pos, dir, beamCols[other.stateID])
 				go hitEffect(other.pos, dir, beamCols[other.stateID])
 				go hitEffect(other.pos, dir, beamCols[other.stateID])
@@ -122,6 +124,7 @@ func main() {
 		default:
 		}
 
+/* ······················································································ Render */
 		render(scr, 2, 2)
 	}
 
@@ -217,6 +220,9 @@ func readLocalInputs(inputCh chan signal) {
 		if BREAK {
 			continue
 		}
+		if SIM_FRAME < RB_BUFFER_LEN * 5 {
+			continue
+		}
 		ev := scr.PollEvent()
 		if key, ok := ev.(*tcell.EventKey); ok {
 
@@ -224,6 +230,17 @@ func readLocalInputs(inputCh chan signal) {
 				scr.Fini()
 				os.Exit(0)
 			} 
+
+			switch key.Key() {
+
+			case tcell.KeyLeft:
+				inputCh <-iLeft
+
+			case tcell.KeyRight:
+				inputCh <-iRight
+
+			default:
+			}
 
 			// Keymap
 			switch key.Rune() {
@@ -246,6 +263,8 @@ func readLocalInputs(inputCh chan signal) {
 				variablePage = 2
 			case '#':
 				variablePage = 3
+			case '$':
+				variablePage = 4
 			}
 
 		} 

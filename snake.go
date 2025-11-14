@@ -89,7 +89,14 @@ func (s *Snake) shoot() {
 			go hitEffect(other.pos, dir, beamCols[other.stateID])
 		}
 
-	} 
+	} else {
+		if ROLLBACK && !s.isLocal {
+			packetsToPeerCh <-PeerPacket{
+				0, [4]signal{iMiss},
+			}
+		}
+
+	}
 	go beamEffect(s.pos, distance, s.shootDir, beamCols[s.stateID])
 	s.shooting = false
 }
