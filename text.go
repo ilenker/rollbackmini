@@ -61,7 +61,8 @@ func variableDisplay() {
 			)
 	case 4:
 		displayVariables(Arg{"*Network*", ""},
-			Arg{"avgRTT:", fmt.Sprintf("%3dms", avgRTTuSec/1000)})
+			Arg{"avgRTT:", fmt.Sprintf("%3dms", avgRTTuSec/1000)},
+			Arg{"avgFrameDiff:", fmt.Sprintf("%.2f", avgFrameDiff)})
 	}
 }
 
@@ -73,18 +74,23 @@ func displayVariables(args ...Arg) {
 }
 
 func textBoxesInit () {
-	debugBox = DrawMessages(scr, MapW + 5 , 4, 30, 30, true)
-	errorBox = DrawMessages(scr, MapW + 37, 4, 15, 30, true)
+	debugBox = drawMessages(scr, MapW + 5 , 1, 30, 15, true)
+	errorBox = drawMessages(scr, MapW + 38, 1, 15, 15, true)
 }
 
 // Returns func(msg) with optional args: func(msg, x, y)
 // Overrides the internal cursor position
-func DrawMessages(scr tcell.Screen, xOrigin, yOrigin, width, height int, drawBox bool) func(msg string, xy ...int) {
+func drawMessages(
+	scr 			 tcell.Screen,
+	xOrigin, yOrigin int,
+	width  , height  int,
+	drawBox 		 bool) func(msg string, xy ...int) {
+
 	x, y, w, h := xOrigin, yOrigin, width, height
 	xO, yO := xOrigin, yOrigin
 
 	if drawBox {
-		DrawRoundBox(scr, xOrigin, yOrigin, width, height, tcell.NewHexColor(0xFFFFFF))
+		drawRoundBox(scr, xOrigin, yOrigin, width, height, tcell.NewHexColor(0xFFFFFF))
 	}
 
 	return func(msg string, args ...int) {
@@ -124,7 +130,7 @@ func DrawMessages(scr tcell.Screen, xOrigin, yOrigin, width, height int, drawBox
 }
 
 
-func DrawRoundBox(scr tcell.Screen, x, y, w, h int, col tcell.Color) {
+func drawRoundBox(scr tcell.Screen, x, y, w, h int, col tcell.Color) {
 	// Sides
 	style := tcell.StyleDefault.Foreground(col).Background(tcell.ColorBlack)
 	for i := range h + 1 {
@@ -145,7 +151,7 @@ func DrawRoundBox(scr tcell.Screen, x, y, w, h int, col tcell.Color) {
 	scr.SetContent(x+w+1, y+h+1, '╯', nil, style)
 }
 
-func DrawPixelBox(scr tcell.Screen, x, y, w, h int, col tcell.Color) {
+func drawPixelBox(scr tcell.Screen, x, y, w, h int, col tcell.Color) {
 	style := tcell.StyleDefault.Foreground(col).Background(tcell.ColorBlack)
 	// Sides
 	for i := range h + 1 {
@@ -187,6 +193,65 @@ func timeF(d time.Duration) string {
 
 	return str
 }
+
+
+func barGraphInit(x, y int) func(int) {
+
+	ColGraph := tcell.StyleDefault.Foreground(tcell.ColorSeaGreen).Background(tcell.ColorBlack)
+	width  := 130
+	height :=  10
+
+	drawPixelBox(scr, x, y, width, height, tcell.ColorLightGreen)
+
+	scr.SetContent(x - 1,
+		y + int(float64(height) * float64(1)),
+		'0', nil, ColDefault)
+
+	scr.SetContent(x - 2,
+		y + int(float64(height) * float64(0.5)),
+		'1', nil, ColDefault)
+	scr.SetContent(x - 1,
+		y + int(float64(height) * float64(0.5)),
+		'0', nil, ColDefault)
+
+	scr.SetContent(x - 2,
+		y + int(float64(height) * float64(0)),
+		'2', nil, ColDefault)
+	scr.SetContent(x - 1,
+		y + int(float64(height) * float64(0)),
+		'0', nil, ColDefault)
+
+	counter := 1
+
+	return func(x int) {
+		if x == 0 { return }
+
+		counter++
+		if counter > width {
+			counter = 2 
+		}
+
+		for i := range height {
+			scr.SetContent(counter,
+				(y + height) - i,
+				'█', nil, ColEmpty)
+		}
+
+		for i := range x / 2 {
+			scr.SetContent(counter,
+				(y + height) - i,
+				'█', nil, ColGraph)
+		}
+
+		if x % 2 == 1 {
+			scr.SetContent(counter,
+				(y + height) - x / 2,
+				'▄', nil, ColGraph)
+			return
+		}
+	}
+}
+
 
 func intSeps(n int) string {
 	if n < 1000 {

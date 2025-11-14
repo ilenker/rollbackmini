@@ -28,8 +28,20 @@ var peerPlayerPtr  *Snake
 func main() {
 
 							/*#### INIT ####*/
-	stylesInit()
+	FrameDiffBuffer = makeAverageIntBuffer(20)
+	player1 = snakeMake(Vec2{(MapW/2) ,  6 + MapH/2}, R, P1Head)
+	player2 = snakeMake(Vec2{(MapW/2) , -7 + MapH/2}, R, P2Head)
+	loadConfig("config.json")
 
+	if online {
+		inputFromPeerCh = make(chan PeerPacket, 128)
+		replyFromPeerCh = make(chan PeerPacket, 128)
+		packetsToPeerCh = make(chan PeerPacket,  32)
+		go multiplayer(inputFromPeerCh, replyFromPeerCh, packetsToPeerCh)
+		<-inputFromPeerCh
+	}
+
+	stylesInit()
 	scr, err = tcell.NewScreen(); F(err, "")
 	err = scr.Init();             F(err, "")
 	scr.SetStyle(ColEmpty)
@@ -37,39 +49,32 @@ func main() {
 	boardInit()
 	textBoxesInit()
 
-	player1 = snakeMake(Vec2{(MapW/2) ,  6 + MapH/2}, R, P1Head)
-	player2 = snakeMake(Vec2{(MapW/2) , -7 + MapH/2}, R, P2Head)
-	loadConfig("config.json")
-
-	inputFromPeerCh = make(chan PeerPacket, 128)
-	replyFromPeerCh = make(chan PeerPacket, 128)
-	packetsToPeerCh = make(chan PeerPacket, 32)
-	if online {
-		go multiplayer(inputFromPeerCh, replyFromPeerCh, packetsToPeerCh)
-		<-inputFromPeerCh
-	}
-
 	localInputCh := make(chan signal, 8)
 	go readLocalInputs(localInputCh)
 
-	if online {<-inputFromPeerCh}
-
 	simTick := time.NewTicker(SIM_TIME)
+
+	frameDiffGraph := barGraphInit(2, 19)
 
 	render(scr, 2, 2)
 
-							/*##############*/
+	if online {<-inputFromPeerCh}
+
+/* ············································································· Main Loop       */
 	// qwfploop
 	for {
-
 		<-simTick.C
-
 /* ············································································· Network Inbound */
 		select {
 		case pPacket := <-inputFromPeerCh:
 			if pPacket.frameID < 5 {
 				errorBox("skip", 0, 0)
 				goto SkipRollback
+			}
+
+			if online {
+				avgFrameDiff = FrameDiffBuffer(int(SIM_FRAME - pPacket.frameID))
+				frameDiffGraph(int(avgFrameDiff))
 			}
 
 			// Case of "reporting no inputs"
@@ -114,7 +119,6 @@ func main() {
 				other := getPeerPlayerPtr()
 				dir := 1.5
 				if other.stateID == P1Head { dir = 0.5 }
-
 /*                                                                                   Hit Confirm */
 				go hitEffect(other.pos, dir, beamCols[other.stateID])
 				go hitEffect(other.pos, dir, beamCols[other.stateID])
@@ -156,6 +160,8 @@ func Break() {
 				variablePage = 2
 			case '3':
 				variablePage = 3
+			case '4':
+				variablePage = 4
 			}
 
 			variableDisplay()
@@ -233,6 +239,7 @@ func readLocalInputs(inputCh chan signal) {
 
 			switch key.Key() {
 
+			// Special Keys
 			case tcell.KeyLeft:
 				inputCh <-iLeft
 
@@ -244,11 +251,6 @@ func readLocalInputs(inputCh chan signal) {
 
 			// Keymap
 			switch key.Rune() {
-
-			case 'm':
-			case 'i':
-			case 'u':
-				//getPeerPlayerPtr().tryInput(iShot)
 
 			case 'x':
 				inputCh <-iLeft
@@ -277,26 +279,13 @@ func drainLocalInputCh(inputCh chan signal) {
 
 	player := getLocalPlayerPtr()
 
-	full := false
+	select {
+	case input := <-inputCh:
+		player.tryInput(input) 
+	default:
+		return
+	}
 
-	//for {
-		if full {
-			return
-		}
-
-		select {
-		case input := <-inputCh:
-			full = player.tryInput(input) 
-		default:
-			return
-		}
-	//} 
-
-}
-
-
-func cellGet(vec Vec2) Cell {
-	return board[vec.y][vec.x]
 }
 
 

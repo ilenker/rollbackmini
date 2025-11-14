@@ -71,7 +71,8 @@ func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket)
 
 	// Inbound loop thread
 	pingTimes = make(map[uint16]time.Time)
-	rttBuffer = makeAverageDurationBuffer(20)
+	rttBuffer = makeAverageDurationBuffer(5)
+
 	go listenToPort(rdvConn, inboundInputs, inboundReplies, outboundPackets)
 	go sendPings(outboundPackets)
 
@@ -240,6 +241,7 @@ func sendCurrentFrameInputs() {
 
 }
 
+
 func sendPings(outboundPackets chan PeerPacket) {
 	pingTicker := time.NewTicker(time.Millisecond * 500)
 
@@ -255,5 +257,10 @@ func sendPings(outboundPackets chan PeerPacket) {
 func processPong(pP PeerPacket) time.Duration {
 	sentTime, _ := pingTimes[pP.frameID]
 	
-	return time.Now().Sub(sentTime)
+	return time.Since(sentTime)
+}
+
+
+func calculateDrift() {
+
 }

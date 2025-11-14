@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	//"github.com/gdamore/tcell/v2"
 )
 
 
 var rollbackBuffer RollbackBuffer
-var hitConfirms map[uint16]HitConfirm
+var FrameDiffBuffer func(int) float64
+var avgFrameDiff float64
 
 type HitConfirm	struct {
 	pos Vec2
