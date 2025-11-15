@@ -261,6 +261,12 @@ func processPong(pP PeerPacket) time.Duration {
 }
 
 
-func calculateDrift() {
-
+func syncFrameDiff() {
+	if SIM_FRAME < 100 {
+		return
+	}
+	target := (avgRTTuSec/1000) / SIM_TIME.Milliseconds()
+	if avgFrameDiff > (float64(target) * 1.5) {
+		time.Sleep(1 * time.Millisecond)
+	}
 }

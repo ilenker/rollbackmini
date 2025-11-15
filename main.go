@@ -75,6 +75,7 @@ func main() {
 			if online {
 				avgFrameDiff = FrameDiffBuffer(int(SIM_FRAME - pPacket.frameID))
 				frameDiffGraph(int(avgFrameDiff))
+				syncFrameDiff()
 			}
 
 			// Case of "reporting no inputs"
