@@ -10,6 +10,7 @@ import (
 // Globals
 var ROLLBACK bool = false
 var BREAK bool = false
+var SYNC bool = false
 
 var scr tcell.Screen
 var err error
@@ -73,20 +74,36 @@ func main() {
 			}
 
 			if online {
-				avgFrameDiff, _ = FrameDiffBuffer(int(SIM_FRAME - pPacket.frameID))
 				frameDiffGraph(int(avgFrameDiff))
 
-				target := ((avgRTTuSec/2) / 1000) / SIM_TIME.Milliseconds()
+				if SIM_FRAME > 200 {
 
-				if avgFrameDiff > (float64(target)) {
-					//time.Sleep(16 * time.Millisecond)
-					//simTick.Reset(SIM_TIME + (time.Millisecond * 1))
+					diffTarget :=
+					float64(avgRTTuSec / 2) /
+					float64(SIM_TIME.Microseconds())
 
-				//} else if avgFrameDiff < (float64(target) * 0.8) {
-				//	simTick.Reset(SIM_TIME - (time.Millisecond * 1))
+					adjust :=
+					time.Duration(avgFrameDiff * 1000 -
+								  diffTarget   * 1000)
 
-				} else {
-					//simTick.Reset(SIM_TIME)
+					errorBox(fmt.Sprintf("[%d]", adjust), 0, 1)
+
+					switch {
+					case adjust <  1000 &&
+						 adjust > -1000 && SYNC:
+						simTick.Reset(SIM_TIME)
+						SYNC = false
+
+					case adjust >  1000:
+						simTick.Reset(SIM_TIME + adjust * time.Nanosecond)
+						SYNC = true
+
+					case adjust < -1000:
+						simTick.Reset(SIM_TIME + adjust * time.Nanosecond)
+						SYNC = true
+
+					}
+
 				}
 
 			}
@@ -96,7 +113,7 @@ func main() {
 			   pPacket.content[0] == 0 {
 				goto SkipRollback
 			}
-			errorBox(fmt.Sprintf("inc:%c", pPacket.content[0]), 5, 0)
+			//errorBox(fmt.Sprintf("inc:%c", pPacket.content[0]), 5, 0)
 
 			// Case of "reporting some inputs"
 /* ·····································································┬·············· Rollback */

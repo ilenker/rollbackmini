@@ -19,7 +19,7 @@ var pingTimes map[uint16]time.Time
 
 var rttBuffer func(time.Duration) (int64, []time.Duration)
 var avgRTTuSec int64
-var RTTuSec []time.Duration
+var RTTs []time.Duration
 
 func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket) {
 	version := "v0.1"
@@ -118,7 +118,7 @@ func listenToPort(conn *net.UDPConn, inboundInputs, inboundReplies, outboundPack
 			inboundReplies <-peerPacket
 
 		case iPong:
-			avgRTTuSec, RTTuSec = rttBuffer(processPong(peerPacket))
+			avgRTTuSec, RTTs = rttBuffer(processPong(peerPacket))
 		case iPing:
 			outboundPackets <-PeerPacket{
 				peerPacket.frameID,
@@ -126,8 +126,8 @@ func listenToPort(conn *net.UDPConn, inboundInputs, inboundReplies, outboundPack
 			}
 
 		default:
+			avgFrameDiff, frameDiffs = FrameDiffBuffer(int(SIM_FRAME - peerPacket.frameID))
 			inboundInputs  <-peerPacket
-
 		}
 
 	}

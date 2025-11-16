@@ -64,9 +64,9 @@ func variableDisplay() {
 		displayVariables(Arg{"*Network*", ""},
 			Arg{"avgRTT:", fmt.Sprintf("%3dms", avgRTTuSec/1000)},
 			Arg{"avgFrameDiff:", fmt.Sprintf("%.2f", avgFrameDiff)},
-			Arg{"target:", fmt.Sprintf("%d", target)},
-			Arg{"frameDiffs:", fmt.Sprintf("%d", frameDiffs[0])})
+			Arg{"target:", fmt.Sprintf("%d", target)})
 	case 5:
+		if len(frameDiffs) < 1 { return }
 		displayVariables(Arg{"*Frame Diffs*", ""},
 			Arg{"", fmt.Sprintf("%2d | %2d", frameDiffs[0], frameDiffs[10])},
 			Arg{"", fmt.Sprintf("%2d | %2d", frameDiffs[1], frameDiffs[11])},
@@ -79,12 +79,13 @@ func variableDisplay() {
 			Arg{"", fmt.Sprintf("%2d | %2d", frameDiffs[8], frameDiffs[18])},
 			Arg{"", fmt.Sprintf("%2d | %2d", frameDiffs[9], frameDiffs[19])})
 	case 6:
+		if len(RTTs) < 1 { return }
 		displayVariables(Arg{"*Ping Times*", ""},
-			Arg{"", fmt.Sprintf("%3d | %3d", RTTuSec[0], RTTuSec[5])},
-			Arg{"", fmt.Sprintf("%3d | %3d", RTTuSec[1], RTTuSec[6])},
-			Arg{"", fmt.Sprintf("%3d | %3d", RTTuSec[2], RTTuSec[7])},
-			Arg{"", fmt.Sprintf("%3d | %3d", RTTuSec[3], RTTuSec[8])},
-			Arg{"", fmt.Sprintf("%3d | %3d", RTTuSec[4], RTTuSec[9])})
+			Arg{"", fmt.Sprintf("%3d | %3d", RTTs[0]/1000, RTTs[5]/1000)},
+			Arg{"", fmt.Sprintf("%3d | %3d", RTTs[1]/1000, RTTs[6]/1000)},
+			Arg{"", fmt.Sprintf("%3d | %3d", RTTs[2]/1000, RTTs[7]/1000)},
+			Arg{"", fmt.Sprintf("%3d | %3d", RTTs[3]/1000, RTTs[8]/1000)},
+			Arg{"", fmt.Sprintf("%3d | %3d", RTTs[4]/1000, RTTs[9]/1000)})
 
 	}
 }
