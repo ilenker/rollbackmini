@@ -6,8 +6,9 @@ import (
 
 
 var rollbackBuffer RollbackBuffer
-var FrameDiffBuffer func(int) float64
+var FrameDiffBuffer func(int) (float64, []int)
 var avgFrameDiff float64
+var frameDiffs []int
 
 type HitConfirm	struct {
 	pos Vec2

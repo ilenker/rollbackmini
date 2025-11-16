@@ -73,9 +73,22 @@ func main() {
 			}
 
 			if online {
-				avgFrameDiff = FrameDiffBuffer(int(SIM_FRAME - pPacket.frameID))
+				avgFrameDiff, _ = FrameDiffBuffer(int(SIM_FRAME - pPacket.frameID))
 				frameDiffGraph(int(avgFrameDiff))
-				syncFrameDiff()
+
+				target := ((avgRTTuSec/2) / 1000) / SIM_TIME.Milliseconds()
+
+				if avgFrameDiff > (float64(target)) {
+					//time.Sleep(16 * time.Millisecond)
+					//simTick.Reset(SIM_TIME + (time.Millisecond * 1))
+
+				//} else if avgFrameDiff < (float64(target) * 0.8) {
+				//	simTick.Reset(SIM_TIME - (time.Millisecond * 1))
+
+				} else {
+					//simTick.Reset(SIM_TIME)
+				}
+
 			}
 
 			// Case of "reporting no inputs"
@@ -268,6 +281,10 @@ func readLocalInputs(inputCh chan signal) {
 				variablePage = 3
 			case '$':
 				variablePage = 4
+			case '%':
+				variablePage = 5
+			case '^':
+				variablePage = 6
 			}
 
 		} 

@@ -15,11 +15,11 @@ type PeerPacket struct {
 	content [4]signal
 }
 
-var pingCh chan PeerPacket
-var pongCh chan PeerPacket
 var pingTimes map[uint16]time.Time
-var rttBuffer func(time.Duration) int64
+
+var rttBuffer func(time.Duration) (int64, []time.Duration)
 var avgRTTuSec int64
+var RTTuSec []time.Duration
 
 func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket) {
 	version := "v0.1"
@@ -71,7 +71,7 @@ func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket)
 
 	// Inbound loop thread
 	pingTimes = make(map[uint16]time.Time)
-	rttBuffer = makeAverageDurationBuffer(5)
+	rttBuffer = makeAverageDurationBuffer(10)
 
 	go listenToPort(rdvConn, inboundInputs, inboundReplies, outboundPackets)
 	go sendPings(outboundPackets)
@@ -118,7 +118,7 @@ func listenToPort(conn *net.UDPConn, inboundInputs, inboundReplies, outboundPack
 			inboundReplies <-peerPacket
 
 		case iPong:
-			avgRTTuSec = rttBuffer(processPong(peerPacket))
+			avgRTTuSec, RTTuSec = rttBuffer(processPong(peerPacket))
 		case iPing:
 			outboundPackets <-PeerPacket{
 				peerPacket.frameID,
@@ -230,9 +230,8 @@ func makePeerPacket(frameID uint16, content [4]signal) PeerPacket {
 
 func sendCurrentFrameInputs() {
 
-	local := getLocalPlayerCopy()
-
 	if online {  
+		local := getLocalPlayerCopy()
 		select {
 		case packetsToPeerCh <-makePeerPacket(SIM_FRAME, local.inputBuffer):
 		default:	
@@ -243,7 +242,7 @@ func sendCurrentFrameInputs() {
 
 
 func sendPings(outboundPackets chan PeerPacket) {
-	pingTicker := time.NewTicker(time.Millisecond * 500)
+	pingTicker := time.NewTicker(time.Millisecond * 250)
 
 	for {
 		<-pingTicker.C
@@ -261,12 +260,3 @@ func processPong(pP PeerPacket) time.Duration {
 }
 
 
-func syncFrameDiff() {
-	if SIM_FRAME < 100 {
-		return
-	}
-	target := (avgRTTuSec/1000) / SIM_TIME.Milliseconds()
-	if avgFrameDiff > (float64(target) * 1.5) {
-		time.Sleep(1 * time.Millisecond)
-	}
-}

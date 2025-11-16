@@ -60,9 +60,32 @@ func variableDisplay() {
 			Arg{"[ 9]:", rollbackBuffer.frames[ 9].id},
 			)
 	case 4:
+		target := ((avgRTTuSec/1000)/2) / SIM_TIME.Milliseconds()
 		displayVariables(Arg{"*Network*", ""},
 			Arg{"avgRTT:", fmt.Sprintf("%3dms", avgRTTuSec/1000)},
-			Arg{"avgFrameDiff:", fmt.Sprintf("%.2f", avgFrameDiff)})
+			Arg{"avgFrameDiff:", fmt.Sprintf("%.2f", avgFrameDiff)},
+			Arg{"target:", fmt.Sprintf("%d", target)},
+			Arg{"frameDiffs:", fmt.Sprintf("%d", frameDiffs[0])})
+	case 5:
+		displayVariables(Arg{"*Frame Diffs*", ""},
+			Arg{"", fmt.Sprintf("%2d | %2d", frameDiffs[0], frameDiffs[10])},
+			Arg{"", fmt.Sprintf("%2d | %2d", frameDiffs[1], frameDiffs[11])},
+			Arg{"", fmt.Sprintf("%2d | %2d", frameDiffs[2], frameDiffs[12])},
+			Arg{"", fmt.Sprintf("%2d | %2d", frameDiffs[3], frameDiffs[13])},
+			Arg{"", fmt.Sprintf("%2d | %2d", frameDiffs[4], frameDiffs[14])},
+			Arg{"", fmt.Sprintf("%2d | %2d", frameDiffs[5], frameDiffs[15])},
+			Arg{"", fmt.Sprintf("%2d | %2d", frameDiffs[6], frameDiffs[16])},
+			Arg{"", fmt.Sprintf("%2d | %2d", frameDiffs[7], frameDiffs[17])},
+			Arg{"", fmt.Sprintf("%2d | %2d", frameDiffs[8], frameDiffs[18])},
+			Arg{"", fmt.Sprintf("%2d | %2d", frameDiffs[9], frameDiffs[19])})
+	case 6:
+		displayVariables(Arg{"*Ping Times*", ""},
+			Arg{"", fmt.Sprintf("%3d | %3d", RTTuSec[0], RTTuSec[5])},
+			Arg{"", fmt.Sprintf("%3d | %3d", RTTuSec[1], RTTuSec[6])},
+			Arg{"", fmt.Sprintf("%3d | %3d", RTTuSec[2], RTTuSec[7])},
+			Arg{"", fmt.Sprintf("%3d | %3d", RTTuSec[3], RTTuSec[8])},
+			Arg{"", fmt.Sprintf("%3d | %3d", RTTuSec[4], RTTuSec[9])})
+
 	}
 }
 

@@ -66,10 +66,11 @@ func wrapInt(n, n_max int) int {
 }
 
 
-func makeAverageDurationBuffer(size int) func(time.Duration) int64 {
+func makeAverageDurationBuffer(size int) func(time.Duration) (int64, []time.Duration) {
 	buffer := make([]time.Duration, size)
 	i := 0
-	return func(d time.Duration) int64 {
+
+	return func(d time.Duration) (int64, []time.Duration) {
 		buffer[i] = d
 		i = wrapInt(i + 1, size)
 		total := time.Duration(0)
@@ -78,24 +79,25 @@ func makeAverageDurationBuffer(size int) func(time.Duration) int64 {
 			total += buffer[n]
 		}
 
-		return total.Microseconds() / int64(size)
+		return (total.Microseconds() / int64(size)), buffer
 	}
 }
 
-func makeAverageIntBuffer(size int) func(n int) float64 {
+func makeAverageIntBuffer(size int) func(n int) (float64, []int)  {
 	buffer := make([]int, size)
 	i := 0
-	return func(n int) float64 {
+	return func(n int) (float64, []int) {
 		buffer[i] = n
 		i = wrapInt(i + 1, size)
 
 		total := 0
 
 		for n := range size {
+
 			total += buffer[n]
 		}
 
-		return float64(total) / float64(size)
+		return (float64(total) / float64(size)), buffer
 	}
 }
 
