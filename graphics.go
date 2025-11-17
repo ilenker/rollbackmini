@@ -123,7 +123,7 @@ func beamEffect(start Vec2, dist int, dir Vec2, colorSeq []colorID) {
 				break
 			}
 			if rand.Intn(20) < chance {
-				board[pos.y][pos.x].col = col
+				vfxLayer[pos.y][pos.x] = col
 			}
 			if d > 0 {
 				d--
@@ -220,7 +220,7 @@ func hitEffect2nd(start Vec2, baseturns float64, colorSeq []colorID) {
 			}
 
 			if rand.Intn(20) < chance {
-				board[pos.y][pos.x].col = col
+				vfxLayer[pos.y][pos.x] = col
 			}
 
 			turns += curve
@@ -253,7 +253,7 @@ func rollbackStreak(start Vec2, dist int, dir Vec2, colID colorID) {
 				break
 			}
 			if rand.Intn(20) < chance {
-				board[pos.y][pos.x].col = col
+				vfxLayer[pos.y][pos.x] = col
 			}
 			if d > 0 {
 				d--

@@ -254,6 +254,17 @@ func render(s tcell.Screen, xOffset, yOffset int) {
 			upper := cols[board[lyUpper][x].col]
 			lower := cols[board[lyLower][x].col]
 
+			upperVfx := cols[vfxLayer[lyUpper][x]]
+			lowerVfx := cols[vfxLayer[lyLower][x]]
+
+			if upperVfx != ColEmpty {
+				upper = upperVfx
+			}
+
+			if lowerVfx != ColEmpty {
+				lower = lowerVfx
+			}
+
 			r := ' '
 			style := ColEmpty
 
@@ -277,6 +288,7 @@ func render(s tcell.Screen, xOffset, yOffset int) {
 			}
 
 			s.SetContent(x + xOffset, y + yOffset, r, nil, style)
+
 		}
 	}
 

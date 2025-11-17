@@ -17,7 +17,8 @@ type Cell struct {
 	connection Vec2
 }
 
-var	board = [MapH+1][MapW+1]Cell{}
+var	board    = [MapH+1][MapW+1]Cell{}
+var	vfxLayer = [MapH+1][MapW+1]colorID{}
 var SIM_FRAME uint16 = 1
 
 
