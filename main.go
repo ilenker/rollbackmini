@@ -59,9 +59,8 @@ func main() {
 
 	render(scr, 2, 2)
 
-	if online && LOCAL == 2 {
-		pP := <-inputFromPeerCh
-		time.Sleep(time.Duration(pP.frameID) * time.Millisecond)
+	if online {
+		<-inputFromPeerCh
 	}
 
 	simTick := time.NewTicker(SIM_TIME)

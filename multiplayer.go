@@ -81,8 +81,16 @@ func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket)
 	go listenToPort(rdvConn, inboundInputs, inboundReplies, outboundPackets)
 	go sendPings(outboundPackets)
 
+	time.Sleep(200 * time.Millisecond)
+
 	if len(RTTs) == RTT_BUFFER_LEN {
-		rdvConn.WriteToUDP(fmt.Appendf(nil, "%5d=6969", (avgRTTuSec / 2000)), premote)
+
+		if LOCAL == 1 {
+			rdvConn.WriteToUDP(fmt.Appendf(nil, "%5d=6969", (avgRTTuSec / 2000)), premote)
+			time.Sleep(time.Duration(avgRTTuSec / 2000) * time.Millisecond)
+			inboundInputs <-PeerPacket{frameID:6969}
+		}
+
 	}
 
 
