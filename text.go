@@ -124,6 +124,8 @@ func drawMessages(
 					scr.SetContent(xO + j, yO + i, ' ', nil, ColDefault)
 				}
 			}	
+			x = xO
+			y = yO
 			return
 		}
 

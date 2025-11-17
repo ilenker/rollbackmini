@@ -35,10 +35,6 @@ func main() {
 	loadConfig("config.json")
 
 
-	stylesInit()
-	scr, err = tcell.NewScreen(); F(err, "")
-	err = scr.Init();             F(err, "")
-	scr.SetStyle(ColEmpty)
 
 	if online {
 		inputFromPeerCh = make(chan PeerPacket, 128)
@@ -48,18 +44,27 @@ func main() {
 		<-inputFromPeerCh
 	}
 
+	stylesInit()
+	scr, err = tcell.NewScreen(); F(err, "")
+	err = scr.Init();             F(err, "")
+	scr.SetStyle(ColEmpty)
+
 	boardInit()
 	textBoxesInit()
 
 	localInputCh := make(chan signal, 8)
 	go readLocalInputs(localInputCh)
 
-	simTick := time.NewTicker(SIM_TIME)
+	frameDiffGraph = barGraphInit(2, 19)
 
 	render(scr, 2, 2)
 
-	if online {<-inputFromPeerCh}
+	if online && LOCAL == 2 {
+		pP := <-inputFromPeerCh
+		time.Sleep(time.Duration(pP.frameID) * time.Millisecond)
+	}
 
+	simTick := time.NewTicker(SIM_TIME)
 /* ············································································· Main Loop       */
 	// qwfp
 	for {
@@ -93,7 +98,7 @@ func main() {
 					simTick.Reset(SIM_TIME)
 					SYNC = false
 
-				case adjust > 1 && !SYNC:
+				case adjust > 1:
 					simTick.Reset(SIM_TIME + adjust * time.Millisecond)
 					SYNC = true
 

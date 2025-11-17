@@ -60,6 +60,9 @@ func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket)
 	inboundInputs <-PeerPacket{frameID:6969}
 	
 	fmt.Printf(" >> Peer found: [%s]\n", peerPubIP)
+	fmt.Printf(" >> Listening...\n\n")
+	fmt.Println("--- Launching SnakeCycles ---")
+	fmt.Println("---     <esc> to quit     ---")
 
 	// After Server Connect
 	// Punch hole
@@ -71,20 +74,16 @@ func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket)
 	}
 
 
-	fmt.Printf(" >> punching hole\n")
-	rdvConn.WriteToUDP([]byte("65535=6969"), premote)
-
 	// Inbound loop thread
 	pingTimes = make(map[uint16]time.Time)
-	rttBuffer = makeAverageDurationBuffer(10)
+	rttBuffer = makeAverageDurationBuffer(RTT_BUFFER_LEN)
 
-	frameDiffGraph = barGraphInit(2, 19)
 	go listenToPort(rdvConn, inboundInputs, inboundReplies, outboundPackets)
 	go sendPings(outboundPackets)
 
-	fmt.Printf(" >> Listening...\n\n")
-	fmt.Println("--- Launching SnakeCycles ---")
-	fmt.Println("---     <esc> to quit     ---")
+	if len(RTTs) == RTT_BUFFER_LEN {
+		rdvConn.WriteToUDP(fmt.Appendf(nil, "%5d=6969", (avgRTTuSec / 2000)), premote)
+	}
 
 
 	// Outbound loop
