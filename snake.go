@@ -16,7 +16,6 @@ type Snake struct {
 	stateID cellState
 	isLocal bool
 	shooting bool
-	isActive bool
 }
 
 
@@ -114,15 +113,12 @@ func (s *Snake) control() {
 	switch input {
 	case iRight:
 		s.dir = R
-		s.isActive = true
 
 	case iLeft:
 		s.dir = L
-		s.isActive = true
 
 	case iShot:
 		s.shooting = true
-		s.isActive = true
 
 	}
 }
@@ -151,7 +147,6 @@ func snakeMake(start Vec2, d direction, stateID cellState) Snake{
 		shootDir: shootDir,
 		shooting: false,
 		isLocal: isLocal,
-		isActive: false,
 	}
 
 	return snake

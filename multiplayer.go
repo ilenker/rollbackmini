@@ -237,11 +237,6 @@ func sendCurrentFrameInputs() {
 
 	local := getLocalPlayerPtr()
 
-	if !local.isActive {
-		return
-	}
-
-	local.isActive = false
 
 	if !online {
 		callsBox(fmt.Sprintf("send(%03X, %c%c%c%c)\n", SIM_FRAME,

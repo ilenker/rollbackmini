@@ -33,7 +33,12 @@ func main() {
 	player1 = snakeMake(Vec2{(MapW/2) ,  6 + MapH/2}, R, P1Head)
 	player2 = snakeMake(Vec2{(MapW/2) , -7 + MapH/2}, R, P2Head)
 	loadConfig("config.json")
-	frameDiffGraph = barGraphInit(2, 19)
+
+
+	stylesInit()
+	scr, err = tcell.NewScreen(); F(err, "")
+	err = scr.Init();             F(err, "")
+	scr.SetStyle(ColEmpty)
 
 	if online {
 		inputFromPeerCh = make(chan PeerPacket, 128)
@@ -43,11 +48,6 @@ func main() {
 		<-inputFromPeerCh
 	}
 
-	stylesInit()
-	scr, err = tcell.NewScreen(); F(err, "")
-	err = scr.Init();             F(err, "")
-	scr.SetStyle(ColEmpty)
-
 	boardInit()
 	textBoxesInit()
 
@@ -55,7 +55,6 @@ func main() {
 	go readLocalInputs(localInputCh)
 
 	simTick := time.NewTicker(SIM_TIME)
-
 
 	render(scr, 2, 2)
 
@@ -313,7 +312,7 @@ func drainLocalInputCh(inputCh chan signal) {
 
 	select {
 	case input := <-inputCh:
-		player.isActive = player.tryInput(input)
+		player.tryInput(input)
 		return
 	default:
 		return
