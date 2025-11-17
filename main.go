@@ -12,6 +12,9 @@ var ROLLBACK bool = false
 var BREAK    bool = false
 var SYNC     bool = false
 
+var localScore int = 0
+var peerScore  int = 0
+
 var scr tcell.Screen
 var err error
 
@@ -189,11 +192,13 @@ func main() {
 				go hitEffect(other.pos, dir, beamCols[other.stateID])
 				go hitEffect(other.pos, dir, beamCols[other.stateID])
 				go hitEffect(other.pos, dir, beamCols[other.stateID])
+				localScore++
 			}
 		default:
 		}
 
 /* ······················································································ Render */
+		scoreBox(fmt.Sprintf("[%02d]:[%02d]", localScore, peerScore), 0, 0)
 		render(scr, 2, 2)
 	}
 

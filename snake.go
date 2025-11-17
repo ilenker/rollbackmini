@@ -96,6 +96,7 @@ func (s *Snake) shoot() {
 		if ROLLBACK && !s.isLocal {
 			dir := 1.5
 			if other.stateID == P1Head { dir = 0.5 }
+			peerScore++
 			packetsToPeerCh <-PeerPacket{
 				0, [4]signal{iHit},
 			}

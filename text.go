@@ -11,6 +11,7 @@ import (
 var debugBox func(msg string, args ...int)
 var errorBox func(msg string, args ...int)
 var callsBox func(msg string, args ...int)
+var scoreBox func(msg string, args ...int)
 var variablePage int = 3
 
 type Arg struct {
@@ -100,6 +101,11 @@ func textBoxesInit () {
 	debugBox = drawMessages(scr, MapW + 5 , 1, 30, 15, true)
 	errorBox = drawMessages(scr, MapW + 38, 1, 15, 15, true)
 	callsBox = drawMessages(scr, MapW + 56, 1, 30, 15, true)
+
+	scoreBox = drawMessages(
+		scr,
+		MapW / 2 - 4, 1,
+		7, 1, false)
 }
 
 // Returns func(msg) with optional args: func(msg, x, y)
