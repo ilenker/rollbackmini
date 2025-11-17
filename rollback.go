@@ -124,6 +124,7 @@ func (rbb *RollbackBuffer) resimFramesWithNewInputs(pPacket PeerPacket) {
 	// Resim from rollbackFrame, until latest frame 
 	i := resimFromBufferIdx
 	i_ := 0
+	errorBox("\\clr")
 	for {
 
 		*getLocalPlayerPtr() = rbb.frames[i % RB_BUFFER_LEN].local

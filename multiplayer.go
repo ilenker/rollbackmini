@@ -237,7 +237,9 @@ func makePeerPacket(frameID uint16, content [4]signal) PeerPacket {
 
 func sendCurrentFrameInputs(input signal) {
 
-	callsBox(fmt.Sprintf("send(%03X, %c)\n", SIM_FRAME, input))
+	if input != iNone {
+		callsBox(fmt.Sprintf("send(%03X, %c)\n", SIM_FRAME, input))
+	}
 
 	if online {
 		select {
