@@ -67,7 +67,7 @@ func main() {
 		for {
 			<-simTick.C
 			SIM_FRAME++
-			if len(RTTs) == RTT_BUFFER_LEN {
+			if SIM_FRAME > 300 {
 				break
 			}
 		}
@@ -83,6 +83,8 @@ func main() {
 		// Block here for start signal as player 2
 		<-inputFromPeerCh
 	}
+
+	SIM_FRAME = 0
 
 /* ············································································· Main Loop       */
 	// qwfp
@@ -103,25 +105,25 @@ func main() {
 
 				frameDiffGraph(int(avgFrameDiff))
 
-				diffTarget :=
-				float64(avgRTTuSec / 2) /
-				float64(SIM_TIME.Microseconds())
+				//diffTarget :=
+				//float64(avgRTTuSec / 2) /
+				//float64(SIM_TIME.Microseconds())
 
-				adjust :=
-				time.Duration(avgFrameDiff -
-					diffTarget)
+				//adjust :=
+				//time.Duration(avgFrameDiff -
+				//	diffTarget)
 
-				switch {
-				case (adjust <  1 &&
-					  adjust > -1) && SYNC:
-					simTick.Reset(SIM_TIME)
-					SYNC = false
+				//switch {
+				////case (adjust <  1 &&
+				////	  adjust > -1) && SYNC:
+				////	simTick.Reset(SIM_TIME)
+				////	SYNC = false
 
-				case adjust > 1:
-					simTick.Reset(SIM_TIME + adjust * time.Millisecond)
-					SYNC = true
+				////case adjust > 1:
+				////	simTick.Reset(SIM_TIME + adjust * time.Millisecond)
+				////	SYNC = true
 
-				}
+				//}
 
 			}
 
