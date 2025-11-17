@@ -19,7 +19,6 @@ type Cell struct {
 
 var	board = [MapH+1][MapW+1]Cell{}
 var SIM_FRAME uint16 = 1
-var RESIM_FRAME uint16 = 1
 
 
 func simulate() {

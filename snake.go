@@ -1,5 +1,7 @@
 package main
 
+//import "fmt"
+
 type Snake struct {
 	pos Vec2
 	dir direction
@@ -14,6 +16,7 @@ type Snake struct {
 	stateID cellState
 	isLocal bool
 	shooting bool
+	isActive bool
 }
 
 
@@ -25,7 +28,7 @@ func (s *Snake) popInput() signal {
 
 	input := s.inputBuffer[s.inputIndex]
 
-	s.inputBuffer[s.inputIndex] = '_'
+	s.inputBuffer[s.inputIndex] = iNone
 
 	s.inputIndex--
 
@@ -35,21 +38,21 @@ func (s *Snake) popInput() signal {
 
 func (s *Snake) tryInput(input signal) bool {
 	if s.inputIndex + 1 >= INPUT_BUFFER_LEN {
-		return true
+		return false
 	}
 	if input == iNone || input == 0 {
-		return true
+		return false
 	}
 	if input == iRight && s.dir == R {
-		return true
+		return false
 	}
 	if input == iLeft && s.dir == L {
-		return true
+		return false
 	}
 	
 	s.inputIndex++
 	s.inputBuffer[s.inputIndex] = input
-	return false
+	return true
 }
 
 
@@ -67,6 +70,8 @@ func (s *Snake) shoot() {
 	if !s.shooting {
 		return
 	}
+	s.shooting = false
+
 	distance := 32
 
 	other := player2
@@ -98,23 +103,27 @@ func (s *Snake) shoot() {
 
 	}
 	go beamEffect(s.pos, distance, s.shootDir, beamCols[s.stateID])
-	s.shooting = false
 }
 
 
 func (s *Snake) control() {
 
 	input := s.popInput()
+	//callsBox(fmt.Sprintf("popInput()->%c\n", input))
 
 	switch input {
 	case iRight:
 		s.dir = R
+		s.isActive = true
 
 	case iLeft:
 		s.dir = L
+		s.isActive = true
 
 	case iShot:
 		s.shooting = true
+		s.isActive = true
+
 	}
 }
 
@@ -142,6 +151,7 @@ func snakeMake(start Vec2, d direction, stateID cellState) Snake{
 		shootDir: shootDir,
 		shooting: false,
 		isLocal: isLocal,
+		isActive: false,
 	}
 
 	return snake

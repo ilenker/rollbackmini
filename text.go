@@ -10,7 +10,8 @@ import (
 
 var debugBox func(msg string, args ...int)
 var errorBox func(msg string, args ...int)
-var variablePage int = 4
+var callsBox func(msg string, args ...int)
+var variablePage int = 3
 
 type Arg struct {
 	name string
@@ -25,6 +26,7 @@ func variableDisplay() {
 			Arg{"inputs:", player1.inputBuffer},
 			Arg{"inpIdx:", player1.inputIndex},
 			Arg{"local :", player1.isLocal},
+			Arg{"active:", player1.isActive},
 			Arg{"pos   :", player1.pos},
 			Arg{"speed :", player1.scpt},
 			Arg{"shot->:", player1.shootDir},
@@ -37,6 +39,7 @@ func variableDisplay() {
 			Arg{"inputs:", player2.inputBuffer},
 			Arg{"inpIdx:", player2.inputIndex},
 			Arg{"local :", player2.isLocal},
+			Arg{"active:", player2.isActive},
 			Arg{"pos   :", player2.pos},
 			Arg{"speed :", player2.scpt},
 			Arg{"shot->:", player2.shootDir},
@@ -44,20 +47,18 @@ func variableDisplay() {
 			Arg{"scDebt:", player2.subcellDebt},
 			)
 	case 3:
+		diffTarget :=
+		float64(avgRTTuSec / 2) /
+		float64(SIM_TIME.Microseconds())
+		adjust :=
+		time.Duration(avgFrameDiff -
+			diffTarget)
+
 		displayVariables(Arg{"*Gamestate*", ""},
-			Arg{"ROLLBACK:", ROLLBACK},
+			Arg{"ROLLBACK :", ROLLBACK},
 			Arg{"SIM_FRAME:", SIM_FRAME},
-			Arg{"RESIM_FRM:", RESIM_FRAME},
-			Arg{"[ 0]:", rollbackBuffer.frames[ 0].id},
-			Arg{"[ 1]:", rollbackBuffer.frames[ 1].id},
-			Arg{"[ 2]:", rollbackBuffer.frames[ 2].id},
-			Arg{"[ 3]:", rollbackBuffer.frames[ 3].id},
-			Arg{"[ 4]:", rollbackBuffer.frames[ 4].id},
-			Arg{"[ 5]:", rollbackBuffer.frames[ 5].id},
-			Arg{"[ 6]:", rollbackBuffer.frames[ 6].id},
-			Arg{"[ 7]:", rollbackBuffer.frames[ 7].id},
-			Arg{"[ 8]:", rollbackBuffer.frames[ 8].id},
-			Arg{"[ 9]:", rollbackBuffer.frames[ 9].id},
+			Arg{"Diff Targ:", fmt.Sprintf("%.2f", diffTarget)},
+			Arg{"Adjust   :", int(adjust)},
 			)
 	case 4:
 		target := ((avgRTTuSec/1000)/2) / SIM_TIME.Milliseconds()
@@ -100,6 +101,7 @@ func displayVariables(args ...Arg) {
 func textBoxesInit () {
 	debugBox = drawMessages(scr, MapW + 5 , 1, 30, 15, true)
 	errorBox = drawMessages(scr, MapW + 38, 1, 15, 15, true)
+	callsBox = drawMessages(scr, MapW + 56, 1, 30, 15, true)
 }
 
 // Returns func(msg) with optional args: func(msg, x, y)

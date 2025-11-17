@@ -9,8 +9,8 @@ import (
 
 // Globals
 var ROLLBACK bool = false
-var BREAK bool = false
-var SYNC bool = false
+var BREAK    bool = false
+var SYNC     bool = false
 
 var scr tcell.Screen
 var err error
@@ -62,9 +62,11 @@ func main() {
 	if online {<-inputFromPeerCh}
 
 /* ············································································· Main Loop       */
-	// qwfploop
+	// qwfp
 	for {
 		<-simTick.C
+
+		if !online { goto SkipRollback }
 /* ············································································· Network Inbound */
 		select {
 		case pPacket := <-inputFromPeerCh:
@@ -73,52 +75,48 @@ func main() {
 				goto SkipRollback
 			}
 
-			if online {
-				frameDiffGraph(int(avgFrameDiff))
+			frameDiffGraph(int(avgFrameDiff))
 
-				if SIM_FRAME > 200 {
+			if SIM_FRAME > 200 {
 
-					diffTarget :=
-					float64(avgRTTuSec / 2) /
-					float64(SIM_TIME.Microseconds())
+				diffTarget :=
+				float64(avgRTTuSec / 2) /
+				float64(SIM_TIME.Microseconds())
 
-					adjust :=
-					time.Duration(avgFrameDiff * 1000 -
-								  diffTarget   * 1000)
+				adjust :=
+				time.Duration(avgFrameDiff -
+					diffTarget)
 
-					errorBox(fmt.Sprintf("[%d]", adjust), 0, 1)
+				switch {
+				case (adjust <  1 &&
+					adjust > -1) && SYNC:
+					simTick.Reset(SIM_TIME)
+					SYNC = false
 
-					switch {
-					case adjust <  1000 &&
-						 adjust > -1000 && SYNC:
-						simTick.Reset(SIM_TIME)
-						SYNC = false
-
-					case adjust >  1000:
-						simTick.Reset(SIM_TIME + adjust * time.Nanosecond)
-						SYNC = true
-
-					case adjust < -1000:
-						simTick.Reset(SIM_TIME + adjust * time.Nanosecond)
-						SYNC = true
-
-					}
+				case adjust >  1 && !SYNC:
+					simTick.Reset(SIM_TIME + adjust * time.Millisecond)
+					SYNC = true
 
 				}
 
 			}
 
+
 			// Case of "reporting no inputs"
 			if pPacket.content[0] == iNone ||
-			   pPacket.content[0] == 0 {
+			pPacket.content[0] == 0 {
 				goto SkipRollback
 			}
-			//errorBox(fmt.Sprintf("inc:%c", pPacket.content[0]), 5, 0)
 
-			// Case of "reporting some inputs"
-/* ·····································································┬·············· Rollback */
-/*                                                                      └──Net Out - Hit Confirm */
+/* ·····································································┬·············· Rollback
+·                                                                       └──Net Out - Hit Confirm */
 			ROLLBACK = true
+			callsBox(fmt.Sprintf("resim(%03X, %c%c%c%c)\n", pPacket.frameID,
+				pPacket.content[0],
+				pPacket.content[1],
+				pPacket.content[2],
+				pPacket.content[3]),
+				)
 			rollbackBuffer.resimFramesWithNewInputs(pPacket)
 			ROLLBACK = false
 
@@ -129,6 +127,9 @@ func main() {
 		SkipRollback:
 
 /* ············································································Stage Local Input */
+		//if SIM_FRAME == 450 {
+		//	localInputCh <-iShot
+		//}
 		drainLocalInputCh(localInputCh)
 
 /* ·································································· Net Out - Send Local Input */
@@ -138,9 +139,8 @@ func main() {
 		rollbackBuffer.pushFrame(copyCurrentFrameData(SIM_FRAME))
 
 /* ···················································································· Simulate */
-		simulate()
-
 		variableDisplay()
+		simulate()
 		SIM_FRAME++
 
 /* ············································································· Network Inbound */
@@ -149,8 +149,8 @@ func main() {
 			if reply.content[0] == iHit {
 				other := getPeerPlayerPtr()
 				dir := 1.5
-				if other.stateID == P1Head { dir = 0.5 }
 /*                                                                                   Hit Confirm */
+				if other.stateID == P1Head { dir = 0.5 }
 				go hitEffect(other.pos, dir, beamCols[other.stateID])
 				go hitEffect(other.pos, dir, beamCols[other.stateID])
 				go hitEffect(other.pos, dir, beamCols[other.stateID])
@@ -254,10 +254,7 @@ func render(s tcell.Screen, xOffset, yOffset int) {
 func readLocalInputs(inputCh chan signal) {
 
 	for {
-		if BREAK {
-			continue
-		}
-		if SIM_FRAME < RB_BUFFER_LEN * 5 {
+		if SIM_FRAME < RB_BUFFER_LEN * 3 {
 			continue
 		}
 		ev := scr.PollEvent()
@@ -290,6 +287,7 @@ func readLocalInputs(inputCh chan signal) {
 			case ' ':
 				inputCh <-iShot
 
+
 			case '!':
 				variablePage = 1
 			case '@':
@@ -316,7 +314,8 @@ func drainLocalInputCh(inputCh chan signal) {
 
 	select {
 	case input := <-inputCh:
-		player.tryInput(input) 
+		player.isActive = player.tryInput(input)
+		return
 	default:
 		return
 	}

@@ -230,11 +230,35 @@ func makePeerPacket(frameID uint16, content [4]signal) PeerPacket {
 
 func sendCurrentFrameInputs() {
 
-	if online {  
-		local := getLocalPlayerCopy()
+	local := getLocalPlayerPtr()
+
+	if !local.isActive {
+		return
+	}
+
+	local.isActive = false
+
+	if !online {
+		callsBox(fmt.Sprintf("send(%03X, %c%c%c%c)\n", SIM_FRAME,
+			local.inputBuffer[0],
+			local.inputBuffer[1],
+			local.inputBuffer[2],
+			local.inputBuffer[3]),
+			)
+	}
+
+	if online {
 		select {
 		case packetsToPeerCh <-makePeerPacket(SIM_FRAME, local.inputBuffer):
+			callsBox(fmt.Sprintf("send(%03X, %c%c%c%c)\n", SIM_FRAME,
+				local.inputBuffer[0],
+				local.inputBuffer[1],
+				local.inputBuffer[2],
+				local.inputBuffer[3]),
+				)
+			return
 		default:	
+			return
 		}
 	}  
 

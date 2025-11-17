@@ -139,7 +139,7 @@ func (rbb *RollbackBuffer) resimFramesWithNewInputs(pPacket PeerPacket) {
 		//render(scr, 2, 2)
 		//Break()
 
-		if currentRollbackFrameID == rbb.latestFrameID + 1{
+		if currentRollbackFrameID == rbb.latestFrameID + 1 {
 			return
 		}
 
