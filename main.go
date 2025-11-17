@@ -59,11 +59,31 @@ func main() {
 
 	render(scr, 2, 2)
 
+	simTick := time.NewTicker(SIM_TIME)
+
+	// Both parties should be in this loop
+	// more or less at the same time
 	if online {
+		for {
+			<-simTick.C
+			SIM_FRAME++
+			if len(RTTs) == RTT_BUFFER_LEN {
+				break
+			}
+		}
+	}
+
+	if LOCAL == 1 {
+		// Send Start Signal as player 1
+		packetsToPeerCh <-PeerPacket{}
+		time.Sleep(time.Duration(avgRTTuSec / 2000) * time.Millisecond)
+	}
+
+	if LOCAL == 2 {
+		// Block here for start signal as player 2
 		<-inputFromPeerCh
 	}
 
-	simTick := time.NewTicker(SIM_TIME)
 /* ············································································· Main Loop       */
 	// qwfp
 	for {

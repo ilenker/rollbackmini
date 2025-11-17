@@ -15,8 +15,6 @@ type PeerPacket struct {
 	content [4]signal
 }
 
-var lastSignal signal
-
 var pingTimes map[uint16]time.Time
 
 var rttBuffer func(time.Duration) (int64, []time.Duration)
@@ -44,7 +42,7 @@ func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket)
 	laddr, err := net.ResolveUDPAddr("udp4", localIP.String() + ":0")
 	if err != nil { fmt.Printf("(rdv)address parse failed: %v\n", err) }
 
-	 // Bind Source Port (Listen)
+	// Bind Source Port (Listen)
 	rdvConn, err := net.ListenUDP("udp4", laddr)
 	if err != nil {
 		fmt.Printf("(rdv)binding failed: %v\n", err)
@@ -52,12 +50,12 @@ func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket)
 		return
 	}
 
-	 // Wait for peer connection + information from rendezvous 
+	// Wait for peer connection + information from rendezvous 
 	peerPubIP, _ := waitForRdvReply(rdvConn, &rdvAddr)
 
 	// This is just a local signal for now
 	// to unblock main thread when both peers are ready
-	inboundInputs <-PeerPacket{frameID:6969}
+	inputFromPeerCh <-PeerPacket{}
 	
 	fmt.Printf(" >> Peer found: [%s]\n", peerPubIP)
 	fmt.Printf(" >> Listening...\n\n")
@@ -80,18 +78,6 @@ func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket)
 
 	go listenToPort(rdvConn, inboundInputs, inboundReplies, outboundPackets)
 	go sendPings(outboundPackets)
-
-	time.Sleep(200 * time.Millisecond)
-
-	if len(RTTs) == RTT_BUFFER_LEN {
-
-		if LOCAL == 1 {
-			rdvConn.WriteToUDP(fmt.Appendf(nil, "%5d=6969", (avgRTTuSec / 2000)), premote)
-			time.Sleep(time.Duration(avgRTTuSec / 2000) * time.Millisecond)
-			inboundInputs <-PeerPacket{frameID:6969}
-		}
-
-	}
 
 
 	// Outbound loop
@@ -271,6 +257,7 @@ func sendPings(outboundPackets chan PeerPacket) {
 	}
 
 }
+
 
 func processPong(pP PeerPacket) time.Duration {
 	sentTime, _ := pingTimes[pP.frameID]
