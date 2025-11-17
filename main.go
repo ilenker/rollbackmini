@@ -33,6 +33,7 @@ func main() {
 	player1 = snakeMake(Vec2{(MapW/2) ,  6 + MapH/2}, R, P1Head)
 	player2 = snakeMake(Vec2{(MapW/2) , -7 + MapH/2}, R, P2Head)
 	loadConfig("config.json")
+	frameDiffGraph = barGraphInit(2, 19)
 
 	if online {
 		inputFromPeerCh = make(chan PeerPacket, 128)
@@ -55,7 +56,6 @@ func main() {
 
 	simTick := time.NewTicker(SIM_TIME)
 
-	frameDiffGraph := barGraphInit(2, 19)
 
 	render(scr, 2, 2)
 
@@ -75,7 +75,6 @@ func main() {
 				goto SkipRollback
 			}
 
-			frameDiffGraph(int(avgFrameDiff))
 
 			if SIM_FRAME > 200 {
 

@@ -21,6 +21,8 @@ var rttBuffer func(time.Duration) (int64, []time.Duration)
 var avgRTTuSec int64
 var RTTs []time.Duration
 
+var frameDiffGraph func(int)
+
 func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket) {
 	version := "v0.1"
 
@@ -73,6 +75,7 @@ func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket)
 	pingTimes = make(map[uint16]time.Time)
 	rttBuffer = makeAverageDurationBuffer(10)
 
+	frameDiffGraph = barGraphInit(2, 19)
 	go listenToPort(rdvConn, inboundInputs, inboundReplies, outboundPackets)
 	go sendPings(outboundPackets)
 
@@ -119,15 +122,17 @@ func listenToPort(conn *net.UDPConn, inboundInputs, inboundReplies, outboundPack
 
 		case iPong:
 			avgRTTuSec, RTTs = rttBuffer(processPong(peerPacket))
+
 		case iPing:
+			avgFrameDiff, frameDiffs = FrameDiffBuffer(int(SIM_FRAME - peerPacket.frameID))
+			frameDiffGraph(int(avgFrameDiff))
 			outboundPackets <-PeerPacket{
 				peerPacket.frameID,
 				[4]signal{iPong},
 			}
 
 		default:
-			avgFrameDiff, frameDiffs = FrameDiffBuffer(int(SIM_FRAME - peerPacket.frameID))
-			inboundInputs  <-peerPacket
+			inboundInputs <-peerPacket
 		}
 
 	}
@@ -266,7 +271,7 @@ func sendCurrentFrameInputs() {
 
 
 func sendPings(outboundPackets chan PeerPacket) {
-	pingTicker := time.NewTicker(time.Millisecond * 250)
+	pingTicker := time.NewTicker(time.Millisecond * 100)
 
 	for {
 		<-pingTicker.C
