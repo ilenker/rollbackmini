@@ -241,3 +241,32 @@ func hitEffect2nd(start Vec2, baseturns float64, colorSeq []colorID) {
 	animate(EmptyC, start,  3, 20)
 
 }
+
+func rollbackStreak(start Vec2, dist int, dir Vec2, colID colorID) {
+
+	start = start.Add(dir)
+
+	animate := func(col colorID, pos Vec2, d int, delay time.Duration, chance int) {
+		for range dist {
+			time.Sleep((SIM_TIME/2) * delay)
+			if pos.y >= MapH || pos.y < 0 {
+				break
+			}
+			if rand.Intn(20) < chance {
+				board[pos.y][pos.x].col = col
+			}
+			if d > 0 {
+				d--
+				pos = pos.Add(dir)
+			}
+		}
+
+	}
+
+	// Frame 1
+	animate(_WhiteC, start, dist, 0, 20)
+	time.Sleep(SIM_TIME)
+	animate(EmptyC, start, dist, 1, 20)
+	animate(EmptyC, start, dist, 1, 20)
+
+}

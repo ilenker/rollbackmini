@@ -57,10 +57,22 @@ func (s *Snake) tryInput(input signal) bool {
 
 func (s *Snake) move() {
 	if s.dir == R {
-		s.pos.x = wrapInt(s.pos.x + 1, MapW)
+		//s.pos.x = wrapInt(s.pos.x + 1, MapW)
+		if s.pos.x == MapW - 1 {
+			s.dir = L
+			s.move()
+			return
+		}
+		s.pos.x++
 	}
 	if s.dir == L {
-		s.pos.x = wrapInt(s.pos.x - 1, MapW)
+		//s.pos.x = wrapInt(s.pos.x - 1, MapW)
+		if s.pos.x == 0 {
+			s.dir = R
+			s.move()
+			return
+		}
+		s.pos.x--
 	}
 }
 

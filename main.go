@@ -71,20 +71,21 @@ func main() {
 				break
 			}
 		}
-	}
+		if LOCAL == 1 {
+			// Send Start Signal as player 1
+			packetsToPeerCh <-PeerPacket{}
+			time.Sleep(time.Duration(
+				float64(avgRTTuSec) / float64(2.1)) * time.Microsecond)
+		}
 
-	if LOCAL == 1 {
-		// Send Start Signal as player 1
-		packetsToPeerCh <-PeerPacket{}
-		time.Sleep(time.Duration(avgRTTuSec / 2000) * time.Millisecond)
-	}
+		if LOCAL == 2 {
+			// Block here for start signal as player 2
+			<-inputFromPeerCh
+		}
 
-	if LOCAL == 2 {
-		// Block here for start signal as player 2
-		<-inputFromPeerCh
-	}
+		SIM_FRAME = 0
 
-	SIM_FRAME = 0
+	}
 
 /* ············································································· Main Loop       */
 	// qwfp
@@ -100,9 +101,7 @@ func main() {
 				goto SkipRollback
 			}
 
-
 			if SIM_FRAME > 200 {
-
 				frameDiffGraph(int(avgFrameDiff))
 
 				//diffTarget :=
@@ -114,17 +113,16 @@ func main() {
 				//	diffTarget)
 
 				//switch {
-				////case (adjust <  1 &&
-				////	  adjust > -1) && SYNC:
-				////	simTick.Reset(SIM_TIME)
-				////	SYNC = false
+				//  case (adjust <  1 &&
+				//  	  adjust > -1) && SYNC:
+				//  	simTick.Reset(SIM_TIME)
+				//  	SYNC = false
 
-				////case adjust > 1:
-				////	simTick.Reset(SIM_TIME + adjust * time.Millisecond)
-				////	SYNC = true
+				//  case adjust > 1:
+				//  	simTick.Reset(SIM_TIME + adjust * time.Millisecond)
+				//  	SYNC = true
 
 				//}
-
 			}
 
 			// Case of "reporting no inputs"
@@ -135,6 +133,7 @@ func main() {
 
 /* ·····································································┬·············· Rollback
 ·                                                                       └──Net Out - Hit Confirm */
+			prePos := getPeerPlayerPtr().pos
 			ROLLBACK = true
 			callsBox(fmt.Sprintf("resim(%03X, %c%c%c%c)\n", pPacket.frameID,
 				pPacket.content[0],
@@ -144,6 +143,17 @@ func main() {
 				)
 			rollbackBuffer.resimFramesWithNewInputs(pPacket)
 			ROLLBACK = false
+			postPos := getPeerPlayerPtr().pos
+			col := getPeerPlayerPtr().stateID
+
+			dir := Vec2{-1, 0}
+			switch getPeerPlayerPtr().dir {
+			case R:
+				dir = Vec2{1, 0}
+			}
+			dist := AbsInt(prePos.x - postPos.x)
+
+			go rollbackStreak(prePos, dist, dir, colorID(col))
 
 		default:
 		// Don't block

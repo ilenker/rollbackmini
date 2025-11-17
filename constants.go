@@ -4,7 +4,6 @@ import (
 	"time"
 )
 
-const SCPT = 64           // Subcell resolution
 const RB_BUFFER_LEN = 20  // How many frames are stored for rollbacks
 const PLAYER_1  = 1      
 const PLAYER_2  = 2

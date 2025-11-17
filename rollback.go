@@ -109,8 +109,6 @@ func (rbb *RollbackBuffer) resimFramesWithNewInputs(pPacket PeerPacket) {
 	if !frameExists {
 		errorBox(fmt.Sprintf("Frame %04d not found\n", pPacket.frameID), 0, 0)
 		return
-		//pPacket.content = [4]signal{95, 95, 95, 95}
-		//pPacket.frameID = SIM_FRAME
 	}
 
 	for _, b := range pPacket.content {
