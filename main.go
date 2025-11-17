@@ -77,6 +77,8 @@ func main() {
 
 			if SIM_FRAME > 200 {
 
+				frameDiffGraph(int(avgFrameDiff))
+
 				diffTarget :=
 				float64(avgRTTuSec / 2) /
 				float64(SIM_TIME.Microseconds())
@@ -87,18 +89,17 @@ func main() {
 
 				switch {
 				case (adjust <  1 &&
-					adjust > -1) && SYNC:
+					  adjust > -1) && SYNC:
 					simTick.Reset(SIM_TIME)
 					SYNC = false
 
-				case adjust >  1 && !SYNC:
+				case adjust > 1 && !SYNC:
 					simTick.Reset(SIM_TIME + adjust * time.Millisecond)
 					SYNC = true
 
 				}
 
 			}
-
 
 			// Case of "reporting no inputs"
 			if pPacket.content[0] == iNone ||
@@ -131,7 +132,6 @@ func main() {
 		drainLocalInputCh(localInputCh)
 
 /* ·································································· Net Out - Send Local Input */
-		sendCurrentFrameInputs()
 
 /* ············································································· Push Save State */
 		rollbackBuffer.pushFrame(copyCurrentFrameData(SIM_FRAME))
@@ -312,9 +312,11 @@ func drainLocalInputCh(inputCh chan signal) {
 
 	select {
 	case input := <-inputCh:
+		sendCurrentFrameInputs(input)
 		player.tryInput(input)
 		return
 	default:
+		sendCurrentFrameInputs(iNone)
 		return
 	}
 

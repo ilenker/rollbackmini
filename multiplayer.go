@@ -15,6 +15,8 @@ type PeerPacket struct {
 	content [4]signal
 }
 
+var lastSignal signal
+
 var pingTimes map[uint16]time.Time
 
 var rttBuffer func(time.Duration) (int64, []time.Duration)
@@ -22,6 +24,7 @@ var avgRTTuSec int64
 var RTTs []time.Duration
 
 var frameDiffGraph func(int)
+
 
 func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket) {
 	version := "v0.1"
@@ -124,14 +127,13 @@ func listenToPort(conn *net.UDPConn, inboundInputs, inboundReplies, outboundPack
 			avgRTTuSec, RTTs = rttBuffer(processPong(peerPacket))
 
 		case iPing:
-			avgFrameDiff, frameDiffs = FrameDiffBuffer(int(SIM_FRAME - peerPacket.frameID))
-			frameDiffGraph(int(avgFrameDiff))
 			outboundPackets <-PeerPacket{
 				peerPacket.frameID,
 				[4]signal{iPong},
 			}
 
 		default:
+			avgFrameDiff, frameDiffs = FrameDiffBuffer(int(SIM_FRAME - peerPacket.frameID))
 			inboundInputs <-peerPacket
 		}
 
@@ -233,29 +235,13 @@ func makePeerPacket(frameID uint16, content [4]signal) PeerPacket {
 	return pP
 }
 
-func sendCurrentFrameInputs() {
+func sendCurrentFrameInputs(input signal) {
 
-	local := getLocalPlayerPtr()
-
-
-	if !online {
-		callsBox(fmt.Sprintf("send(%03X, %c%c%c%c)\n", SIM_FRAME,
-			local.inputBuffer[0],
-			local.inputBuffer[1],
-			local.inputBuffer[2],
-			local.inputBuffer[3]),
-			)
-	}
+	callsBox(fmt.Sprintf("send(%03X, %c)\n", SIM_FRAME, input))
 
 	if online {
 		select {
-		case packetsToPeerCh <-makePeerPacket(SIM_FRAME, local.inputBuffer):
-			callsBox(fmt.Sprintf("send(%03X, %c%c%c%c)\n", SIM_FRAME,
-				local.inputBuffer[0],
-				local.inputBuffer[1],
-				local.inputBuffer[2],
-				local.inputBuffer[3]),
-				)
+		case packetsToPeerCh <-makePeerPacket(SIM_FRAME, [4]signal{input}):
 			return
 		default:	
 			return
