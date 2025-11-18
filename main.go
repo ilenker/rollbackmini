@@ -359,8 +359,10 @@ func drainLocalInputCh(inputCh chan signal) {
 
 	select {
 	case input := <-inputCh:
-		sendCurrentFrameInputs(input)
-		player.tryInput(input)
+		if player.shotCD == 0 {
+			sendCurrentFrameInputs(input)
+			player.tryInput(input)
+		}
 		return
 	default:
 		sendCurrentFrameInputs(iNone)

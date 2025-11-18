@@ -24,6 +24,9 @@ var SIM_FRAME uint16 = 1
 
 func simulate() {
 
+	player1.cooldown()
+	player2.cooldown()
+
 	subcellBudget := player1.scpt - player1.subcellDebt
 	for subcellBudget > 0 {
 		player1.control()

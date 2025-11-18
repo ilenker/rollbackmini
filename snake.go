@@ -135,9 +135,19 @@ func (s *Snake) control() {
 		s.dir = L
 
 	case iShot:
+		s.shotCD = 60
 		s.shooting = true
 
 	}
+}
+
+func (s *Snake) cooldown() {
+	if s.shotCD > 0 {
+		if s.scpt != 2 {s.scpt = 2}
+		s.shotCD--
+		return
+	}
+	if s.scpt != 8 {s.scpt = 8}
 }
 
 func snakeMake(start Vec2, d direction, stateID cellState) Snake{
