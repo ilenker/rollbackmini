@@ -8,10 +8,11 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-var debugBox func(msg string, args ...int)
-var errorBox func(msg string, args ...int)
-var callsBox func(msg string, args ...int)
-var scoreBox func(msg string, args ...int)
+var debugBox func(msg string, args ...int) (int, int)
+var errorBox func(msg string, args ...int) (int, int)
+var callsBox func(msg string, args ...int) (int, int)
+var scoreBox func(msg string, args ...int) (int, int)
+var frameBox func(msg string, args ...int) (int, int)
 var variablePage int = 3
 
 type Arg struct {
@@ -104,8 +105,13 @@ func textBoxesInit () {
 
 	scoreBox = drawMessages(
 		scr,
-		MapW / 2 - 4, 1,
-		7, 1, false)
+		MapW / 2 - 3, 1,
+		8, 1, false)
+
+	frameBox = drawMessages(
+		scr,
+		MapW / 2 - 3, 0,
+		8, 1, false)
 }
 
 // Returns func(msg) with optional args: func(msg, x, y)
@@ -114,7 +120,7 @@ func drawMessages(
 	scr 			 tcell.Screen,
 	xOrigin, yOrigin int,
 	width  , height  int,
-	drawBox 		 bool) func(msg string, xy ...int) {
+	drawBox 		 bool) func(msg string, args ...int) (int, int) {
 
 	x, y, w, h := xOrigin, yOrigin, width, height
 	xO, yO := xOrigin, yOrigin
@@ -123,7 +129,7 @@ func drawMessages(
 		drawRoundBox(scr, xOrigin, yOrigin, width, height, tcell.NewHexColor(0xFFFFFF))
 	}
 
-	return func(msg string, args ...int) {
+	return func(msg string, args ...int) (int, int) {
 		if msg == "\\clr" {
 			for i := range h {
 				for j := range w {
@@ -132,16 +138,17 @@ func drawMessages(
 			}	
 			x = xO
 			y = yO
-			return
+			return x, y
 		}
 
 		if len(args) > 1 {
 			x = (xOrigin + args[0]) % (w + xOrigin)
 			y = (yOrigin + args[1]) % (h + yOrigin)
 		}
+
 		for _, r := range msg {
 			if y > (yOrigin + h) {
-				return
+				return x, y
 			}
 			if r != '\n' {
 				scr.SetContent(x, y, r, nil, ColDefault)	
@@ -151,13 +158,14 @@ func drawMessages(
 					x = xO // Line Wrapping
 				}
 			} else {
-				y++     
+				y++
 				if y > height {
 					y = yO
 				}
 				x = xO  // Carriage Return
 			}
 		}
+		return x - xO, y - yO
 	}
 }
 
@@ -224,6 +232,56 @@ func timeF(d time.Duration) string {
 	}
 
 	return str
+}
+
+func loadingInfo(x, y int) (int, int) {
+
+	if SIM_FRAME == 70 {
+		x, y = debugBox("...OK!\n", x-1, y)
+	}
+
+
+	if SIM_FRAME == 90 {
+		x, y = debugBox("Auto-detecting graphics")
+	}
+
+	if SIM_FRAME == 300 {
+		x, y = debugBox(" \nPreset to:\n - Ultra low + RTX Off", x, y)
+	}
+
+	if SIM_FRAME == 600 - 180 {
+		x, y = debugBox(" \nStarting in\n...3", x, y)
+	}
+
+	if SIM_FRAME == 600 - 120 {
+		x, y = debugBox("\n...2", x, y)
+	}
+
+	if SIM_FRAME == 600 - 60 {
+		x, y = debugBox("\n...1", x, y)
+	}
+
+	if (SIM_FRAME < 70) || 
+	(SIM_FRAME > 90 &&
+	SIM_FRAME < 420){
+		spinner(x, y)
+	}
+
+	return x, y
+}
+
+func spinner(x, y int) {
+	switch SIM_FRAME % 24 {
+	// ⣷ ⣯ ⣟ ⡿ ⢿ ⣻ ⣽ ⣾
+	case  0: debugBox("⣷", x, y)
+	case  3: debugBox("⣯", x, y)
+	case  6: debugBox("⣟", x, y)
+	case  9: debugBox("⡿", x, y)
+	case 12: debugBox("⢿", x, y)
+	case 15: debugBox("⣻", x, y)
+	case 18: debugBox("⣽", x, y)
+	case 21: debugBox("⣾", x, y)
+	}
 }
 
 
@@ -301,4 +359,9 @@ func intSeps(n int) string {
 		result = "," + s[len(s)-3:] + result
 		s = s[:len(s)-3]
 	}
+}
+
+func setStyle(x, y int, style tcell.Style) {
+	r, _, _, _ := scr.GetContent(x, y)
+	scr.SetContent(x, y, r, nil, style)
 }

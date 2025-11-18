@@ -37,8 +37,6 @@ func main() {
 	player2 = snakeMake(Vec2{(MapW/2) , -7 + MapH/2}, R, P2Head)
 	loadConfig("config.json")
 
-
-
 	if online {
 		inputFromPeerCh = make(chan PeerPacket, 128)
 		replyFromPeerCh = make(chan PeerPacket, 128)
@@ -64,13 +62,18 @@ func main() {
 
 	simTick := time.NewTicker(SIM_TIME)
 
-	// Both parties should be in this loop
-	// more or less at the same time
+	
+/* ············································································· Sync Loop       */
 	if online {
+		x, y := debugBox("Connecting")
 		for {
 			<-simTick.C
+
+			x, y = loadingInfo(x, y)
+
 			SIM_FRAME++
-			if SIM_FRAME > 300 {
+			render(scr, 2, 2)
+			if SIM_FRAME > 600 {
 				break
 			}
 		}
@@ -80,14 +83,11 @@ func main() {
 			time.Sleep(time.Duration(
 				float64(avgRTTuSec) / float64(2.1)) * time.Microsecond)
 		}
-
 		if LOCAL == 2 {
 			// Block here for start signal as player 2
 			<-inputFromPeerCh
 		}
-
 		SIM_FRAME = 0
-
 	}
 
 /* ············································································· Main Loop       */
@@ -104,7 +104,7 @@ func main() {
 				goto SkipRollback
 			}
 
-			if SIM_FRAME > 200 {
+			if SIM_FRAME > 100 {
 				frameDiffGraph(int(avgFrameDiff))
 
 				//diffTarget :=
@@ -138,12 +138,6 @@ func main() {
 ·                                                                       └──Net Out - Hit Confirm */
 			prePos := getPeerPlayerPtr().pos
 			ROLLBACK = true
-			callsBox(fmt.Sprintf("resim(%03X, %c%c%c%c)\n", pPacket.frameID,
-				pPacket.content[0],
-				pPacket.content[1],
-				pPacket.content[2],
-				pPacket.content[3]),
-				)
 			rollbackBuffer.resimFramesWithNewInputs(pPacket)
 			ROLLBACK = false
 			postPos := getPeerPlayerPtr().pos
@@ -165,12 +159,8 @@ func main() {
 		SkipRollback:
 
 /* ············································································Stage Local Input */
-		//if SIM_FRAME == 450 {
-		//	localInputCh <-iShot
-		//}
+/*                                                                    Net Out - Send Local Input */
 		drainLocalInputCh(localInputCh)
-
-/* ·································································· Net Out - Send Local Input */
 
 /* ············································································· Push Save State */
 		rollbackBuffer.pushFrame(copyCurrentFrameData(SIM_FRAME))
@@ -178,7 +168,6 @@ func main() {
 /* ···················································································· Simulate */
 		variableDisplay()
 		simulate()
-		SIM_FRAME++
 
 /* ············································································· Network Inbound */
 		select {
@@ -199,7 +188,14 @@ func main() {
 
 /* ······················································································ Render */
 		scoreBox(fmt.Sprintf("[%02d]:[%02d]", localScore, peerScore), 0, 0)
+		setStyle(18,1, cols[colorID(getLocalPlayerPtr().stateID)])
+		setStyle(19,1, cols[colorID(getLocalPlayerPtr().stateID)])
+		setStyle(23,1, cols[colorID(getPeerPlayerPtr().stateID)])
+		setStyle(24,1, cols[colorID(getPeerPlayerPtr().stateID)])
+
+		frameBox(fmt.Sprintf(" [%05d] ", SIM_FRAME), 0, 0)
 		render(scr, 2, 2)
+		SIM_FRAME++
 	}
 
 }
@@ -240,11 +236,6 @@ func Break() {
 	}
 
 }
-
-// This function should not be aware of input sources
-// Could be local user, multiplayer peer, bot
-// This only updates the snake state.
-// We'll see how this works out (input validation based on board state?)
 
 
 func render(s tcell.Screen, xOffset, yOffset int) {
@@ -351,6 +342,9 @@ func readLocalInputs(inputCh chan signal) {
 				variablePage = 5
 			case '^':
 				variablePage = 6
+			case '0':
+				callsBox("\\clr")
+				errorBox("\\clr")
 			}
 
 		} 

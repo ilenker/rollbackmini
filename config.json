@@ -1,6 +1,6 @@
 {
     "localPlayer": 2,
-    "moveSpeed": 8,
+    "moveSpeed": 2,
     "simulationSpeedMS": 16,
     "online": true
 }

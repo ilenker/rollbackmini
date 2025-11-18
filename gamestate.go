@@ -25,7 +25,6 @@ var SIM_FRAME uint16 = 1
 func simulate() {
 
 	subcellBudget := player1.scpt - player1.subcellDebt
-
 	for subcellBudget > 0 {
 		player1.control()
 		cellSet(player1.pos, Empty)
@@ -37,7 +36,6 @@ func simulate() {
 
 
 	subcellBudget = player2.scpt - player2.subcellDebt
-
 	for subcellBudget > 0 {
 		player2.control()
 		cellSet(player2.pos, Empty)

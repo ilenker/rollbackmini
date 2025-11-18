@@ -1,6 +1,6 @@
 package main
 
-//import "fmt"
+import "fmt"
 
 type Snake struct {
 	pos Vec2
@@ -16,6 +16,8 @@ type Snake struct {
 	stateID cellState
 	isLocal bool
 	shooting bool
+
+	shotCD int
 }
 
 
@@ -90,10 +92,11 @@ func (s *Snake) shoot() {
 		other = player1
 	}
 
+	callsBox(fmt.Sprintf("A:%2d|B:%2d, rb:%v\n", s.pos.x, other.pos.x, ROLLBACK))
 	if other.pos.x == s.pos.x {
 		distance = AbsInt(other.pos.y - s.pos.y) - 1
 
-		if ROLLBACK && !s.isLocal {
+		if !s.isLocal {
 			dir := 1.5
 			if other.stateID == P1Head { dir = 0.5 }
 			peerScore++
@@ -105,6 +108,7 @@ func (s *Snake) shoot() {
 			go hitEffect(other.pos, dir, beamCols[other.stateID])
 			go hitEffect(other.pos, dir, beamCols[other.stateID])
 		}
+
 
 	} else {
 		if ROLLBACK && !s.isLocal {
@@ -160,6 +164,7 @@ func snakeMake(start Vec2, d direction, stateID cellState) Snake{
 		shootDir: shootDir,
 		shooting: false,
 		isLocal: isLocal,
+		shotCD: 0,
 	}
 
 	return snake
