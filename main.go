@@ -72,7 +72,7 @@ func main() {
 			x, y = loadingInfo(x, y)
 
 			SIM_FRAME++
-			render(scr, 2, 2)
+			render(scr, MapX, MapY)
 			if SIM_FRAME > 600 {
 				break
 			}
@@ -106,25 +106,20 @@ func main() {
 
 			if SIM_FRAME > 100 {
 				frameDiffGraph(int(avgFrameDiff))
-
 				//diffTarget :=
 				//float64(avgRTTuSec / 2) /
 				//float64(SIM_TIME.Microseconds())
-
 				//adjust :=
 				//time.Duration(avgFrameDiff -
 				//	diffTarget)
-
 				//switch {
 				//  case (adjust <  1 &&
 				//  	  adjust > -1) && SYNC:
 				//  	simTick.Reset(SIM_TIME)
 				//  	SYNC = false
-
 				//  case adjust > 1:
 				//  	simTick.Reset(SIM_TIME + adjust * time.Millisecond)
 				//  	SYNC = true
-
 				//}
 			}
 
@@ -183,6 +178,16 @@ func main() {
 				go hitEffect(other.pos, dir, beamCols[other.stateID])
 				localScore++
 			}
+			if reply.content[0] == iCrit {
+				other := getPeerPlayerPtr()
+				dir := 1.5
+				if other.stateID == P1Head { dir = 0.5 }
+				go hitEffectCrit(other.pos, dir, beamCols[other.stateID])
+				go hitEffectCrit(other.pos, dir, beamCols[other.stateID])
+				go hitEffectCrit(other.pos, dir, beamCols[other.stateID])
+				go hitEffectCrit(other.pos, dir, beamCols[other.stateID])
+				localScore += 5
+			}
 		default:
 		}
 
@@ -194,7 +199,7 @@ func main() {
 		setStyle(24,1, cols[colorID(getPeerPlayerPtr().stateID)])
 
 		frameBox(fmt.Sprintf(" [%05d] ", SIM_FRAME), 0, 0)
-		render(scr, 2, 2)
+		render(scr, MapX, MapY)
 		SIM_FRAME++
 	}
 

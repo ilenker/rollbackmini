@@ -113,6 +113,8 @@ func listenToPort(conn *net.UDPConn, inboundInputs, inboundReplies, outboundPack
 		switch peerPacket.content[0] {
 		case iHit:
 			inboundReplies <-peerPacket
+		case iCrit:
+			inboundReplies <-peerPacket
 		case iMiss:
 			inboundReplies <-peerPacket
 

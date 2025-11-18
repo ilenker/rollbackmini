@@ -60,7 +60,7 @@ func boardInit() {
 			board[y][x].state = Empty
 		}
 	}
-	drawPixelBox(scr, 2, 2, MapW - 1, MapH/2 - 1, tcell.ColorBlue)
+	drawPixelBox(scr, 2, 2, MapW - 1, MapH/2 - 1, tcell.ColorSteelBlue)
 }
 
 

@@ -204,6 +204,59 @@ func hitEffect(start Vec2, baseturns float64, colorSeq []colorID) {
 
 }
 
+func hitEffectCrit(start Vec2, baseturns float64, colorSeq []colorID) {
+
+	baseturns += -0.2 + rand.Float64() * 0.4
+
+	animLen := 4 + rand.Intn(12)
+	turns := baseturns
+	curve := -0.05 + rand.Float64() * 0.1
+
+	animate := func(col colorID, pos Vec2, delay time.Duration, chance int, after bool) {
+		for range animLen {
+			time.Sleep((SIM_TIME/2) * delay)
+
+			if pos.x >= MapW || pos.x < 0 || 
+			   pos.y >= MapH || pos.y < 0 {
+				break
+			}
+
+			if rand.Intn(20) < chance {
+				board[pos.y][pos.x].col = col
+			}
+
+			turns += curve
+			pos = pos.Translate(turns * math.Pi, 1)
+		}
+
+		if after {
+			go hitEffect2nd(pos, 2 * rand.Float64(), colorSeq)
+			go hitEffect2nd(pos, 2 * rand.Float64(), colorSeq)
+		}
+		turns = baseturns
+
+	}
+
+	animate(colorSeq[0], start, 0, 20, true)
+	time.Sleep(SIM_TIME)
+	time.Sleep(SIM_TIME)
+
+	animate(EmptyC, start,  0, 20, false)
+	time.Sleep(SIM_TIME)
+	time.Sleep(SIM_TIME)
+
+	animate(colorSeq[1], start, 0, 20, false)
+	time.Sleep(SIM_TIME)
+
+	animate(colorSeq[2], start, 0, 15, true)
+
+	animate(colorSeq[2], start, 1, 20, false)
+	animate(EmptyC, start,  1, 10, false)
+	animate(EmptyC, start,  2, 15, false)
+	animate(EmptyC, start,  2, 20, true)
+
+}
+
 func hitEffect2nd(start Vec2, baseturns float64, colorSeq []colorID) {
 
 	animLen := 0 + rand.Intn(5)
@@ -268,5 +321,18 @@ func rollbackStreak(start Vec2, dist int, dir Vec2, colID colorID) {
 	time.Sleep(SIM_TIME)
 	animate(EmptyC, start, dist, 1, 20)
 	animate(EmptyC, start, dist, 1, 20)
+
+}
+
+func cooldownBar(origin Vec2, length int, colorID colorID) {
+
+	if length == 0 {
+		vfxLayer[origin.y][origin.x] = EmptyC
+	}
+
+	for i := range length {
+		vfxLayer[origin.y][origin.x + i + 1] = EmptyC
+		vfxLayer[origin.y][origin.x + i    ] = colorID
+	}
 
 }

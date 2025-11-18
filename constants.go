@@ -18,7 +18,8 @@ const (
 	iLeft  signal = 108 // l 
 	iShot  signal = 115 // s
 
-	iHit   signal = 72  // H 
+	iHit   signal = 72  // H
+	iCrit  signal = 67  // C
 	iMiss  signal = 77  // M
 
 	iPing  signal = 63  // ?
@@ -44,7 +45,9 @@ const (
 
 // Map settings
 const MapH = 30
-const MapW = 20 * 2
+const MapW = 40
+const MapX = 2
+const MapY = 2
 const SUBCELL_SIZE = 32
 
 

@@ -99,14 +99,27 @@ func (s *Snake) shoot() {
 		if !s.isLocal {
 			dir := 1.5
 			if other.stateID == P1Head { dir = 0.5 }
-			peerScore++
-			packetsToPeerCh <-PeerPacket{
-				0, [4]signal{iHit},
+
+			if other.shotCD != 0 {
+				peerScore++
+				packetsToPeerCh <-PeerPacket{
+					0, [4]signal{iHit},
+				}
+				go hitEffect(other.pos, dir, beamCols[other.stateID])
+				go hitEffect(other.pos, dir, beamCols[other.stateID])
+				go hitEffect(other.pos, dir, beamCols[other.stateID])
+				go hitEffect(other.pos, dir, beamCols[other.stateID])
+			} else {
+				peerScore += 5
+				packetsToPeerCh <-PeerPacket{
+					0, [4]signal{iCrit},
+				}
+				go hitEffectCrit(other.pos, dir, beamCols[other.stateID])
+				go hitEffectCrit(other.pos, dir, beamCols[other.stateID])
+				go hitEffectCrit(other.pos, dir, beamCols[other.stateID])
+				go hitEffectCrit(other.pos, dir, beamCols[other.stateID])
 			}
-			go hitEffect(other.pos, dir, beamCols[other.stateID])
-			go hitEffect(other.pos, dir, beamCols[other.stateID])
-			go hitEffect(other.pos, dir, beamCols[other.stateID])
-			go hitEffect(other.pos, dir, beamCols[other.stateID])
+			
 		}
 
 
@@ -142,12 +155,27 @@ func (s *Snake) control() {
 }
 
 func (s *Snake) cooldown() {
+	col := colorID(P1Head)
+	pos := Vec2{MapX + MapW/2 - 8, MapH - 2}
+
+	if s.stateID == P2Head {
+		col = colorID(P2Head)
+		pos = Vec2{MapX + MapW/2 - 12, 1}
+	}
+
+	length := int(iLerp(0, 60, float64(s.shotCD)) * 16)
+	cooldownBar(pos, length, col)
+
 	if s.shotCD > 0 {
 		if s.scpt != 2 {s.scpt = 2}
 		s.shotCD--
 		return
 	}
-	if s.scpt != 8 {s.scpt = 8}
+
+	if s.scpt != 8 {
+		s.scpt = 8
+	}
+
 }
 
 func snakeMake(start Vec2, d direction, stateID cellState) Snake{
