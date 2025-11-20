@@ -8,6 +8,13 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+type textBox func(msg string, args ...int) (int, int)
+
+type Arg struct {
+	name string
+	val any
+}
+
 var debugBox func(msg string, args ...int) (int, int)
 var errorBox func(msg string, args ...int) (int, int)
 var callsBox func(msg string, args ...int) (int, int)
@@ -15,10 +22,6 @@ var scoreBox func(msg string, args ...int) (int, int)
 var frameBox func(msg string, args ...int) (int, int)
 var variablePage int = 3
 
-type Arg struct {
-	name string
-	val any
-}
 
 func variableDisplay() {
 	switch variablePage {
@@ -87,9 +90,9 @@ func variableDisplay() {
 			Arg{"", fmt.Sprintf("%3d | %3d", RTTs[2]/1000, RTTs[7]/1000)},
 			Arg{"", fmt.Sprintf("%3d | %3d", RTTs[3]/1000, RTTs[8]/1000)},
 			Arg{"", fmt.Sprintf("%3d | %3d", RTTs[4]/1000, RTTs[9]/1000)})
-
 	}
 }
+
 
 func displayVariables(args ...Arg) {
 	debugBox("\\clr")
@@ -98,17 +101,18 @@ func displayVariables(args ...Arg) {
 	}
 }
 
-func textBoxesInit () {
-	debugBox = drawMessages(scr, MapW + 5 , 1, 30, 15, true)
-	errorBox = drawMessages(scr, MapW + 38, 1, 15, 15, true)
-	callsBox = drawMessages(scr, MapW + 56, 1, 30, 15, true)
 
-	scoreBox = drawMessages(
+func textBoxesInit () {
+	debugBox = newTextBox(scr, MapW + 5 , 1, 30, 15, true)
+	errorBox = newTextBox(scr, MapW + 38, 1, 15, 15, true)
+	callsBox = newTextBox(scr, MapW + 56, 1, 30, 15, true)
+
+	scoreBox = newTextBox(
 		scr,
 		MapW / 2 - 3, 1,
 		8, 1, false)
 
-	frameBox = drawMessages(
+	frameBox = newTextBox(
 		scr,
 		MapW / 2 - 3, 0,
 		8, 1, false)
@@ -116,11 +120,11 @@ func textBoxesInit () {
 
 // Returns func(msg) with optional args: func(msg, x, y)
 // Overrides the internal cursor position
-func drawMessages(
+func newTextBox(
 	scr 			 tcell.Screen,
 	xOrigin, yOrigin int,
 	width  , height  int,
-	drawBox 		 bool) func(msg string, args ...int) (int, int) {
+	drawBox 		 bool) textBox {
 
 	x, y, w, h := xOrigin, yOrigin, width, height
 	xO, yO := xOrigin, yOrigin
@@ -191,6 +195,7 @@ func drawRoundBox(scr tcell.Screen, x, y, w, h int, col tcell.Color) {
 	scr.SetContent(x+w+1, y+h+1, '╯', nil, style)
 }
 
+
 func drawPixelBox(scr tcell.Screen, x, y, w, h int, col tcell.Color) {
 	style := tcell.StyleDefault.Foreground(col).Background(tcell.ColorBlack)
 	// Sides
@@ -234,12 +239,12 @@ func timeF(d time.Duration) string {
 	return str
 }
 
+
 func loadingInfo(x, y int) (int, int) {
 
 	if SIM_FRAME == 70 {
 		x, y = debugBox("...OK!\n", x-1, y)
 	}
-
 
 	if SIM_FRAME == 90 {
 		x, y = debugBox("Auto-detecting graphics")
@@ -264,23 +269,24 @@ func loadingInfo(x, y int) (int, int) {
 	if (SIM_FRAME < 70) || 
 	(SIM_FRAME > 90 &&
 	SIM_FRAME < 420){
-		spinner(x, y)
+		spinner(x, y, 3, debugBox)
 	}
 
 	return x, y
 }
 
-func spinner(x, y int) {
-	switch SIM_FRAME % 24 {
-	// ⣷ ⣯ ⣟ ⡿ ⢿ ⣻ ⣽ ⣾
-	case  0: debugBox("⣷", x, y)
-	case  3: debugBox("⣯", x, y)
-	case  6: debugBox("⣟", x, y)
-	case  9: debugBox("⡿", x, y)
-	case 12: debugBox("⢿", x, y)
-	case 15: debugBox("⣻", x, y)
-	case 18: debugBox("⣽", x, y)
-	case 21: debugBox("⣾", x, y)
+
+func spinner(x, y, frameTime int, textBox func(msg string, args ...int) (int, int)) {
+	animationFrames := 8
+	switch int(SIM_FRAME) % (frameTime * animationFrames) {
+	case frameTime * 0: textBox("⣷", x, y)
+	case frameTime * 1: textBox("⣯", x, y)
+	case frameTime * 2: textBox("⣟", x, y)
+	case frameTime * 3: textBox("⡿", x, y)
+	case frameTime * 4: textBox("⢿", x, y)
+	case frameTime * 5: textBox("⣻", x, y)
+	case frameTime * 6: textBox("⣽", x, y)
+	case frameTime * 7: textBox("⣾", x, y)
 	}
 }
 
@@ -360,6 +366,7 @@ func intSeps(n int) string {
 		s = s[:len(s)-3]
 	}
 }
+
 
 func setStyle(x, y int, style tcell.Style) {
 	r, _, _, _ := scr.GetContent(x, y)

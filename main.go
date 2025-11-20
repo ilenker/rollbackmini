@@ -299,7 +299,6 @@ func render(s tcell.Screen, xOffset, yOffset int) {
 
 // Collect all (local) input and send down a single channel
 func readLocalInputs(inputCh chan signal) {
-
 	for {
 		if SIM_FRAME < RB_BUFFER_LEN * 3 {
 			continue
@@ -312,28 +311,23 @@ func readLocalInputs(inputCh chan signal) {
 				os.Exit(0)
 			} 
 
-			switch key.Key() {
-
 			// Special Keys
+			switch key.Key() {
 			case tcell.KeyLeft:
 				inputCh <-iLeft
-
 			case tcell.KeyRight:
 				inputCh <-iRight
-
 			default:
 			}
 
 			// Keymap
 			switch key.Rune() {
-
 			case 'x':
 				inputCh <-iLeft
 			case 'd':
 				inputCh <-iRight
 			case ' ':
 				inputCh <-iShot
-
 
 			case '!':
 				variablePage = 1
