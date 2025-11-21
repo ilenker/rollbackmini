@@ -7,8 +7,8 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-type cellState uint8
-type direction uint8
+type cellState = uint8
+type direction = uint8
 type signal byte
 
 type Cell struct {
@@ -18,7 +18,7 @@ type Cell struct {
 }
 
 var	board    = [MapH+1][MapW+1]Cell{}
-var	vfxLayer = [MapH+1][MapW+1]colorID{}
+var	vfxLayer = [MapH+1][MapW+1]tcell.Color{}
 var SIM_FRAME uint16 = 1
 
 

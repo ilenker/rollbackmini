@@ -10,16 +10,20 @@ import (
 
 type textBox func(msg string, args ...int) (int, int)
 
+func (t textBox) Clear() {
+	t("\\clr")
+}
+
 type Arg struct {
 	name string
 	val any
 }
 
-var debugBox func(msg string, args ...int) (int, int)
-var errorBox func(msg string, args ...int) (int, int)
-var callsBox func(msg string, args ...int) (int, int)
-var scoreBox func(msg string, args ...int) (int, int)
-var frameBox func(msg string, args ...int) (int, int)
+var debugBox textBox
+var errorBox textBox
+var callsBox textBox
+var scoreBox textBox
+var frameBox textBox
 var variablePage int = 3
 
 
@@ -95,7 +99,7 @@ func variableDisplay() {
 
 
 func displayVariables(args ...Arg) {
-	debugBox("\\clr")
+	debugBox.Clear()
 	for i, arg := range args {
 		debugBox(fmt.Sprintf("%s\t%v", arg.name, arg.val), 0, i)
 	}
@@ -137,7 +141,7 @@ func newTextBox(
 		if msg == "\\clr" {
 			for i := range h {
 				for j := range w {
-					scr.SetContent(xO + j, yO + i, ' ', nil, ColDefault)
+					scr.SetContent(xO + j, yO + i, ' ', nil, tcell.StyleDefault)
 				}
 			}	
 			x = xO
@@ -155,7 +159,7 @@ func newTextBox(
 				return x, y
 			}
 			if r != '\n' {
-				scr.SetContent(x, y, r, nil, ColDefault)	
+				scr.SetContent(x, y, r, nil, tcell.StyleDefault)	
 				x++
 				if x > (xOrigin + w) {
 					y++
@@ -243,7 +247,7 @@ func timeF(d time.Duration) string {
 func loadingInfo(x, y int) (int, int) {
 
 	if SIM_FRAME == 70 {
-		x, y = debugBox("...OK!\n", x-1, y)
+		x, y = debugBox("...OK!\n", x, y)
 	}
 
 	if SIM_FRAME == 90 {
@@ -301,21 +305,21 @@ func newBarGraph(x, y int) func(int) {
 
 	scr.SetContent(x - 1,
 		y + int(float64(height) * float64(1)),
-		'0', nil, ColDefault)
+		'0', nil, tcell.StyleDefault)
 
 	scr.SetContent(x - 2,
 		y + int(float64(height) * float64(0.5)),
-		'1', nil, ColDefault)
+		'1', nil, tcell.StyleDefault)
 	scr.SetContent(x - 1,
 		y + int(float64(height) * float64(0.5)),
-		'0', nil, ColDefault)
+		'0', nil, tcell.StyleDefault)
 
 	scr.SetContent(x - 2,
 		y + int(float64(height) * float64(0)),
-		'2', nil, ColDefault)
+		'2', nil, tcell.StyleDefault)
 	scr.SetContent(x - 1,
 		y + int(float64(height) * float64(0)),
-		'0', nil, ColDefault)
+		'0', nil, tcell.StyleDefault)
 
 	counter := 1
 
@@ -330,7 +334,7 @@ func newBarGraph(x, y int) func(int) {
 		for i := range height {
 			scr.SetContent(counter,
 				(y + height) - i,
-				'█', nil, ColEmpty)
+				'█', nil, tcell.StyleDefault.Foreground(tcell.ColorBlack))
 		}
 
 		for i := range x / 2 {
@@ -368,7 +372,7 @@ func intSeps(n int) string {
 }
 
 
-func setStyle(x, y int, style tcell.Style) {
+func setColor(x, y int, color tcell.Color) {
 	r, _, _, _ := scr.GetContent(x, y)
-	scr.SetContent(x, y, r, nil, style)
+	scr.SetContent(x, y, r, nil, tcell.StyleDefault.Foreground(color))
 }

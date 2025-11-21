@@ -10,6 +10,12 @@ type Vec2 struct {
 	y int
 }
 
+type VecRGB struct {
+	r uint8
+	g uint8
+	b uint8
+}
+
 
 func AbsInt(n int) int {
 	if n < 0 {
@@ -132,4 +138,22 @@ func (v1 Vec2) Translate(angleRad float64, distance float64) Vec2 {
     newY := v1.y + int(math.Round(dy))
     
     return Vec2{x: newX, y: newY}
+}
+
+func (v1 VecRGB) Add(v2 VecRGB) VecRGB {
+	v3 := v1
+	if int(v1.r) + int(v2.r) > 255 { v3.r = 255 } else {v3.r = v1.r + v2.r }
+	if int(v1.g) + int(v2.g) > 255 { v3.g = 255 } else {v3.b = v1.b + v2.b }
+	if int(v1.b) + int(v2.b) > 255 { v3.b = 255 } else {v3.g = v1.g + v2.g }
+
+	return v3
+}
+
+func (v1 VecRGB) Sub(v2 VecRGB) VecRGB {
+	v3 := v1
+	if int(v1.r) - int(v2.r) < 0 { v3.r = 0 } else {v3.r = v1.r - v2.r }
+	if int(v1.g) - int(v2.g) < 0 { v3.g = 0 } else {v3.b = v1.b - v2.b }
+	if int(v1.b) - int(v2.b) < 0 { v3.b = 0 } else {v3.g = v1.g - v2.g }
+
+	return v3
 }
