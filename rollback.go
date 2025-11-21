@@ -29,17 +29,30 @@ type RollbackBuffer struct {
 	latestFrameID uint16
 }
 
+type PacketBuffer struct {
+	packets[]PeerPacket
+	idxLatest int
+}
+
 
 func (rbb *RollbackBuffer) pushFrame(frame FrameData) {
-
-
-	//debugBox(fmt.Sprintf("%x", rbb.idxLatest), 1 + rbb.idxLatest, 3)
-	//if rbb.idxLatest == 0 { debugBox("                ", rbb.idxLatest, 4) }
-	//debugBox(" ^", rbb.idxLatest, 4)
 	rbb.frames[rbb.idxLatest] = frame
 	rbb.idxLatest = (rbb.idxLatest + 1) % RB_BUFFER_LEN
 	rbb.latestFrameID = frame.id
 
+}
+
+func (pb *PacketBuffer) pushPacket(pP PeerPacket) {
+	pb.packets[pb.idxLatest] = pP
+	pb.idxLatest = (pb.idxLatest + 1) % PACKET_BUFFER_LEN
+}
+
+func (pb *PacketBuffer) popPacket() PeerPacket {
+	pP := pb.packets[
+		wrapInt(pb.idxLatest - PACKET_BUFFER_LEN,
+		PACKET_BUFFER_LEN),
+	]
+	return pP
 }
 
 

@@ -7,10 +7,11 @@ import (
 )
 
 type Config struct {
-    LocalPlayer       int  `json:"localPlayer"`
-    MoveSpeed         int  `json:"moveSpeed"`
-    SimulationSpeedMS int  `json:"simulationSpeedMS"`
-    Online            bool `json:"online"`
+    LocalPlayer			int  `json:"localPlayer"`
+    MoveSpeed			int  `json:"moveSpeed"`
+    SimulationSpeedMS	int  `json:"simulationSpeedMS"`
+	InputDelayFrames	int  `json:"inputDelayFrames"`
+    Online				bool `json:"online"`
 }
 
 func loadConfig(filename string) {
@@ -55,5 +56,6 @@ func loadConfig(filename string) {
 	player1.scpt = int16(config.MoveSpeed)
 	player2.scpt = int16(config.MoveSpeed)
 
+	PACKET_BUFFER_LEN = config.InputDelayFrames
 	online = config.Online
 }

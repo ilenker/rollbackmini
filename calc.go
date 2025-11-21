@@ -65,7 +65,6 @@ func wrapInt(n, n_max int) int {
 	return wrap
 }
 
-
 func makeAverageDurationBuffer(size int) func(time.Duration) (int64, []time.Duration) {
 	buffer := make([]time.Duration, size)
 	i := 0

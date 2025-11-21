@@ -4,10 +4,10 @@ import (
 	"time"
 )
 
-const RB_BUFFER_LEN    = 20	// Number of frames stored for rollbacks
-const INPUT_BUFFER_LEN = 2	// Number of inputs that be queued - smoothes out control feel
-const RTT_BUFFER_LEN   = 10	// Number of ping times used for averaging
-
+const RB_BUFFER_LEN     = 20	// Number of frames stored for rollbacks
+const INPUT_BUFFER_LEN  = 2		// Number of inputs that be queued - smoothes out control feel
+const RTT_BUFFER_LEN    = 10	// Number of ping times used for averaging
+const START_FRAME		= 100
 
 // Communication signals
 
@@ -55,3 +55,4 @@ var SIM_TIME time.Duration		// How long each game loop tick takes
 var online = false
 var LOCAL int					// Identifier for which player (top / bottom) is the local peer
 var PEER  int					// Identifier for which player (top / bottom) is the remote peer
+var PACKET_BUFFER_LEN = 2		// Artificial delay for very low RTT connections

@@ -56,7 +56,7 @@ func main() {
 	localInputCh := make(chan signal, 8)
 	go readLocalInputs(localInputCh)
 
-	frameDiffGraph = barGraphInit(2, 19)
+	frameDiffGraph = newBarGraph(2, 19)
 
 	render(scr, 2, 2)
 
@@ -81,13 +81,13 @@ func main() {
 			// Send Start Signal as player 1
 			packetsToPeerCh <-PeerPacket{}
 			time.Sleep(time.Duration(
-				float64(avgRTTuSec) / float64(2.1)) * time.Microsecond)
+				float64(avgRTTuSec) / float64(2)) * time.Microsecond)
 		}
 		if LOCAL == 2 {
 			// Block here for start signal as player 2
 			<-inputFromPeerCh
 		}
-		SIM_FRAME = 0
+		SIM_FRAME = START_FRAME
 	}
 
 /* ············································································· Main Loop       */
@@ -104,7 +104,7 @@ func main() {
 				goto SkipRollback
 			}
 
-			if SIM_FRAME > 100 {
+			if SIM_FRAME > 200 {
 				frameDiffGraph(int(avgFrameDiff))
 				//diffTarget :=
 				//float64(avgRTTuSec / 2) /
@@ -296,11 +296,10 @@ func render(s tcell.Screen, xOffset, yOffset int) {
 	s.Show()
 }
 
-
 // Collect all (local) input and send down a single channel
 func readLocalInputs(inputCh chan signal) {
 	for {
-		if SIM_FRAME < RB_BUFFER_LEN * 3 {
+		if SIM_FRAME < START_FRAME + RB_BUFFER_LEN * 3 {
 			continue
 		}
 		ev := scr.PollEvent()

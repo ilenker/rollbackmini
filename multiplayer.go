@@ -20,6 +20,7 @@ var pingTimes map[uint16]time.Time
 var rttBuffer func(time.Duration) (int64, []time.Duration)
 var avgRTTuSec int64
 var RTTs []time.Duration
+var packetsOutBuffer PacketBuffer
 
 var frameDiffGraph func(int)
 
@@ -73,6 +74,10 @@ func multiplayer(inboundInputs, inboundReplies, outboundPackets chan PeerPacket)
 
 
 	// Inbound loop thread
+	packetsOutBuffer = PacketBuffer{
+		packets: make([]PeerPacket, PACKET_BUFFER_LEN),
+	}
+
 	pingTimes = make(map[uint16]time.Time)
 	rttBuffer = makeAverageDurationBuffer(RTT_BUFFER_LEN)
 
@@ -235,9 +240,18 @@ func sendCurrentFrameInputs(input signal) {
 		callsBox(fmt.Sprintf("send(%03X, %c)       \n", SIM_FRAME, input))
 	}
 
+	var outPacket PeerPacket
+
 	if online {
+		if PACKET_BUFFER_LEN != 0 {
+			packetsOutBuffer.pushPacket(makePeerPacket(SIM_FRAME, [4]signal{input}))
+			outPacket = packetsOutBuffer.popPacket()
+		} else {
+			outPacket = makePeerPacket(SIM_FRAME, [4]signal{input})
+		}
+
 		select {
-		case packetsToPeerCh <-makePeerPacket(SIM_FRAME, [4]signal{input}):
+		case packetsToPeerCh <-outPacket:
 			return
 		default:	
 			return

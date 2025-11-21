@@ -291,9 +291,9 @@ func spinner(x, y, frameTime int, textBox func(msg string, args ...int) (int, in
 }
 
 
-func barGraphInit(x, y int) func(int) {
+func newBarGraph(x, y int) func(int) {
 
-	ColGraph := tcell.StyleDefault.Foreground(tcell.ColorSeaGreen).Background(tcell.ColorBlack)
+	ColGraph := tcell.StyleDefault.Foreground(tcell.ColorSeaGreen)
 	width  := 130
 	height :=  10
 

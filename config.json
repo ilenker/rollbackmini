@@ -1,6 +1,7 @@
 {
-    "localPlayer": 1,
-    "moveSpeed": 2,
-    "simulationSpeedMS": 16,
-    "online": false
+    "localPlayer":          2,
+    "moveSpeed":            2,
+    "simulationSpeedMS":    16,
+    "inputDelayFrames":     15,
+    "online":               true
 }
