@@ -93,7 +93,8 @@ func (s *Snake) shoot() {
 	}
 
 	callsBox(fmt.Sprintf("A:%2d|B:%2d, rb:%v\n", s.pos.x, other.pos.x, ROLLBACK))
-	if other.pos.x == s.pos.x {
+	dx := AbsInt(other.pos.x - s.pos.x)
+	if dx < 2 {
 		distance = AbsInt(other.pos.y - s.pos.y) - 1
 
 		if !s.isLocal {
@@ -105,19 +106,17 @@ func (s *Snake) shoot() {
 				packetsToPeerCh <-PeerPacket{
 					0, [4]signal{iHit},
 				}
-				go hitEffect(other.pos, dir, beamCols[other.stateID])
-				go hitEffect(other.pos, dir, beamCols[other.stateID])
-				go hitEffect(other.pos, dir, beamCols[other.stateID])
-				go hitEffect(other.pos, dir, beamCols[other.stateID])
+
+				for range 4 { go hitEffect(other.pos, dir, hitCols[other.stateID]) }
+
 			} else {
 				peerScore += 5
 				packetsToPeerCh <-PeerPacket{
 					0, [4]signal{iCrit},
 				}
-				go hitEffectCrit(other.pos, dir, beamCols[other.stateID])
-				go hitEffectCrit(other.pos, dir, beamCols[other.stateID])
-				go hitEffectCrit(other.pos, dir, beamCols[other.stateID])
-				go hitEffectCrit(other.pos, dir, beamCols[other.stateID])
+
+				for range 5 { go hitEffectCrit(other.pos, dir, hitCols[other.stateID]) }
+
 			}
 			
 		}
@@ -131,7 +130,26 @@ func (s *Snake) shoot() {
 		}
 
 	}
-	go beamEffect(s.pos, distance, s.shootDir, beamCols[s.stateID])
+	go beamEffect(
+		s.pos.add(Vec2{-1, 0}).add(s.shootDir.scale(2)),
+		distance-1,
+		s.shootDir,
+		beamCols[s.stateID],
+		)
+
+	go beamEffect(
+		s.pos,
+		distance+2,
+		s.shootDir,
+		beamCols[s.stateID],
+		)
+
+	go beamEffect(
+		s.pos.add(Vec2{ 1, 0}).add(s.shootDir.scale(2)),
+		distance-1,
+		s.shootDir,
+		beamCols[s.stateID],
+		)
 }
 
 

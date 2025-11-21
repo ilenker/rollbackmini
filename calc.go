@@ -117,8 +117,16 @@ func B2i(b bool) int {
 	return 0
 }
 
+func (v1 Vec2) scale(n int) Vec2 {
+	newX := wrapInt(v1.x * n, MapW)
+	newY := wrapInt(v1.y * n, MapH)
+	return Vec2{
+		newX,
+		newY,
+	}
+}
 
-func (v1 Vec2) Add(v2 Vec2) Vec2 {
+func (v1 Vec2) add(v2 Vec2) Vec2 {
 	newX := wrapInt(v1.x + v2.x, MapW)
 	newY := wrapInt(v1.y + v2.y, MapH)
 	return Vec2{
@@ -127,14 +135,14 @@ func (v1 Vec2) Add(v2 Vec2) Vec2 {
 	}
 }
 
-func (v1 Vec2) AddNoWrap(v2 Vec2) Vec2 {
+func (v1 Vec2) addNoWrap(v2 Vec2) Vec2 {
 	return Vec2{
 		x: v1.x + v2.x,
 		y: v1.y + v2.y,
 	}
 }
 
-func (v1 Vec2) Translate(angleRad float64, distance float64) Vec2 {
+func (v1 Vec2) translate(angleRad float64, distance float64) Vec2 {
     
     dx := distance * math.Cos(angleRad)
     dy := distance * math.Sin(angleRad)
@@ -145,23 +153,24 @@ func (v1 Vec2) Translate(angleRad float64, distance float64) Vec2 {
     return Vec2{x: newX, y: newY}
 }
 
-func (v1 VecRGB) Add(v2 VecRGB) VecRGB {
+func (v1 VecRGB) add(v2 VecRGB) VecRGB {
+
 	v3 := v1
-	if int(v1.r) + int(v2.r) > 255 { v3.r = 255 } else {v3.r = v1.r + v2.r }
-	if int(v1.g) + int(v2.g) > 255 { v3.g = 255 } else {v3.b = v1.b + v2.b }
-	if int(v1.b) + int(v2.b) > 255 { v3.b = 255 } else {v3.g = v1.g + v2.g }
+	v3.r = v1.r + v2.r 
+	v3.b = v1.b + v2.b
+	v3.g = v1.g + v2.g
+
+	if v3.r > 255 { v3.r = 255 }
+	if v3.g > 255 { v3.g = 255 }
+	if v3.b > 255 { v3.b = 255 }
+
+	if v3.r < 0   { v3.r = 0   }
+	if v3.g < 0   { v3.g = 0   }
+	if v3.b < 0   { v3.b = 0   }
 
 	return v3
 }
 
-func (v1 VecRGB) Sub(v2 VecRGB) VecRGB {
-	v3 := v1
-	if int(v1.r) - int(v2.r) < 0 { v3.r = 0 } else {v3.r = v1.r - v2.r }
-	if int(v1.g) - int(v2.g) < 0 { v3.g = 0 } else {v3.b = v1.b - v2.b }
-	if int(v1.b) - int(v2.b) < 0 { v3.b = 0 } else {v3.g = v1.g - v2.g }
-
-	return v3
-}
 
 func fB2i(b bool) int {
     return int(*(*byte)(unsafe.Pointer(&b)))

@@ -12,6 +12,7 @@ type colorID = uint8
 var COLORTERM_OG string
 var stDef = tcell.StyleDefault
 
+
 const (
 	EmptyC colorID = iota
 	P1HeadC
@@ -33,7 +34,7 @@ var cols map[colorID]tcell.Color
 var p1BeamCols = []colorID {
 	WhiteC,
 	ShotP1C,
-	Shot2C,
+	ShotP1C,
 	Shot3C,
 }
 
@@ -67,6 +68,7 @@ var hitCols = map[cellState][]colorID{
 	P1Head: p1HitCols,
 	P2Head: p2HitCols,
 }
+
 
 func render(s tcell.Screen, xOffset, yOffset int) {
 	// s.Clear()
@@ -141,31 +143,35 @@ func stylesInit() {
 
 		WhiteC  : tcell.ColorWhite,
 
-		ShotP1C : tcell.ColorBlue,
+		ShotP1C : tcell.ColorCornflowerBlue,
 		ShotP2C : tcell.ColorOrange,
 
-		Shot2C  : tcell.NewRGBColor( 60,  13,  16),
-		Shot3C  : tcell.NewRGBColor( 49,  11,  12),
+		Shot2C  : tcell.NewRGBColor(60, 13, 16),
+		Shot3C  : tcell.NewRGBColor(66, 18, 26),
 	}
 }
 
 func beamEffect(start Vec2, dist int, dir Vec2, colorSeq []colorID) {
 
-	start = start.Add(dir)
+	start = start.add(dir)
 	animLen := 26
 
 	animate := func(col colorID, pos Vec2, d int, delay time.Duration, chance int) {
+		c := cols[col]
 		for range animLen {
 			time.Sleep((SIM_TIME/2) * delay)
 			if pos.y >= MapH || pos.y < 0 {
 				break
 			}
+			if col != EmptyC && col != WhiteC {
+				c = addRBGtoColor(VecRGB{-5, -5, -5}, c)
+			}
 			if rand.Intn(20) < chance {
-				vfxLayer[pos.y][pos.x] = cols[col]
+				vfxLayer[pos.y][pos.x] = c
 			}
 			if d > 0 {
 				d--
-				pos = pos.AddNoWrap(dir)
+				pos = pos.addNoWrap(dir)
 			}
 		}
 
@@ -211,7 +217,7 @@ func hitEffect(start Vec2, baseturns float64, colorSeq []colorID) {
 			}
 
 			turns += curve
-			pos = pos.Translate(turns * math.Pi, 1)
+			pos = pos.translate(turns * math.Pi, 1)
 		}
 
 		if after {
@@ -252,6 +258,7 @@ func hitEffectCrit(start Vec2, baseturns float64, colorSeq []colorID) {
 
 	animate := func(col colorID, pos Vec2, delay time.Duration, chance int, after bool) {
 		for range animLen {
+			c := cols[col]
 			time.Sleep((SIM_TIME/2) * delay)
 
 			if pos.x >= MapW || pos.x < 0 || 
@@ -259,15 +266,21 @@ func hitEffectCrit(start Vec2, baseturns float64, colorSeq []colorID) {
 				break
 			}
 
+			if col != EmptyC && col != WhiteC {
+				c = addRBGtoColor(VecRGB{-7, -7, -7}, c)
+			}
+
 			if rand.Intn(20) < chance {
-				board[pos.y][pos.x].col = col
+				vfxLayer[pos.y][pos.x] = c
 			}
 
 			turns += curve
-			pos = pos.Translate(turns * math.Pi, 1)
+			pos = pos.translate(turns * math.Pi, 1)
 		}
 
 		if after {
+			go hitEffect2nd(pos, 2 * rand.Float64(), colorSeq)
+			go hitEffect2nd(pos, 2 * rand.Float64(), colorSeq)
 			go hitEffect2nd(pos, 2 * rand.Float64(), colorSeq)
 			go hitEffect2nd(pos, 2 * rand.Float64(), colorSeq)
 		}
@@ -279,16 +292,16 @@ func hitEffectCrit(start Vec2, baseturns float64, colorSeq []colorID) {
 	time.Sleep(SIM_TIME)
 	time.Sleep(SIM_TIME)
 
-	animate(EmptyC, start,  0, 20, false)
+	animate(colorSeq[1], start,  0, 20, true)
 	time.Sleep(SIM_TIME)
 	time.Sleep(SIM_TIME)
 
-	animate(colorSeq[1], start, 0, 20, false)
+	animate(colorSeq[2], start, 0, 20, false)
 	time.Sleep(SIM_TIME)
 
 	animate(colorSeq[2], start, 0, 15, true)
 
-	animate(colorSeq[2], start, 1, 20, false)
+	animate(colorSeq[3], start, 1, 20, false)
 	animate(EmptyC, start,  1, 10, false)
 	animate(EmptyC, start,  2, 15, false)
 	animate(EmptyC, start,  2, 20, true)
@@ -304,6 +317,7 @@ func hitEffect2nd(start Vec2, baseturns float64, colorSeq []colorID) {
 	curve := -0.1 + rand.Float64() * 0.2
 
 	animate := func(col colorID, pos Vec2, delay time.Duration, chance int) {
+		c := cols[col]
 		for range animLen {
 			time.Sleep((SIM_TIME/2) * delay)
 			if pos.x >= MapW || pos.x < 0 || 
@@ -311,12 +325,16 @@ func hitEffect2nd(start Vec2, baseturns float64, colorSeq []colorID) {
 				break
 			}
 
+			if col != EmptyC && col != WhiteC {
+				c = addRBGtoColor(VecRGB{-7, -7, -7}, c)
+			}
+
 			if rand.Intn(20) < chance {
 				vfxLayer[pos.y][pos.x] = cols[col]
 			}
 
 			turns += curve
-			pos = pos.Translate(turns * math.Pi, 1)
+			pos = pos.translate(turns * math.Pi, 1)
 		}
 		turns = baseturns
 	}
@@ -337,7 +355,7 @@ func hitEffect2nd(start Vec2, baseturns float64, colorSeq []colorID) {
 
 func rollbackStreak(start Vec2, dist int, dir Vec2, colID colorID) {
 
-	start = start.Add(dir)
+	start = start.add(dir)
 
 	animate := func(col tcell.Color, pos Vec2, d int, delay time.Duration, chance int) {
 		for range dist {
@@ -350,7 +368,7 @@ func rollbackStreak(start Vec2, dist int, dir Vec2, colID colorID) {
 			}
 			if d > 0 {
 				d--
-				pos = pos.Add(dir)
+				pos = pos.add(dir)
 			}
 		}
 
@@ -376,6 +394,12 @@ func cooldownBar(origin Vec2, length int, colorID colorID) {
 		vfxLayer[origin.y][origin.x + i    ] = cols[colorID]
 	}
 
+}
+
+func addRBGtoColor(v VecRGB, c tcell.Color) tcell.Color {
+	r, g, b := c.RGB()
+	v = v.add(VecRGB{r, g, b})
+	return tcell.NewRGBColor(v.r, v.g, v.b)
 }
 
 

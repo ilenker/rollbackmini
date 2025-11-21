@@ -110,25 +110,6 @@ func main() {
 				goto SkipRollback
 			}
 
-			if SIM_FRAME > 200 {
-				frameDiffGraph(int(avgFrameDiff))
-				//diffTarget :=
-				//float64(avgRTTuSec / 2) /
-				//float64(SIM_TIME.Microseconds())
-				//adjust :=
-				//time.Duration(avgFrameDiff -
-				//	diffTarget)
-				//switch {
-				//  case (adjust <  1 &&
-				//  	  adjust > -1) && SYNC:
-				//  	simTick.Reset(SIM_TIME)
-				//  	SYNC = false
-				//  case adjust > 1:
-				//  	simTick.Reset(SIM_TIME + adjust * time.Millisecond)
-				//  	SYNC = true
-				//}
-			}
-
 			// Case of "reporting no inputs"
 			if pPacket.content[0] == iNone ||
 			pPacket.content[0] == 0 {
@@ -142,8 +123,8 @@ func main() {
 			rollbackBuffer.resimFramesWithNewInputs(pPacket)
 			ROLLBACK = false
 			postPos := getPeerPlayerPtr().pos
-			col := getPeerPlayerPtr().stateID
 
+			col := getPeerPlayerPtr().stateID
 			dir := Vec2{-1, 0}
 			switch getPeerPlayerPtr().dir {
 			case R:
@@ -170,28 +151,22 @@ func main() {
 		variableDisplay()
 		simulate()
 
-/* ············································································· Network Inbound */
+/* ············································································· Network Inbound  ·
+·                                                                                    Hit Confirm */
 		select {
 		case reply := <-replyFromPeerCh:
 			if reply.content[0] == iHit {
 				other := getPeerPlayerPtr()
 				dir := 1.5
-/*                                                                                   Hit Confirm */
 				if other.stateID == P1Head { dir = 0.5 }
-				go hitEffect(other.pos, dir, beamCols[other.stateID])
-				go hitEffect(other.pos, dir, beamCols[other.stateID])
-				go hitEffect(other.pos, dir, beamCols[other.stateID])
-				go hitEffect(other.pos, dir, beamCols[other.stateID])
+				for range 4 { go hitEffect(other.pos, dir, hitCols[other.stateID]) }
 				localScore++
 			}
 			if reply.content[0] == iCrit {
 				other := getPeerPlayerPtr()
 				dir := 1.5
 				if other.stateID == P1Head { dir = 0.5 }
-				go hitEffectCrit(other.pos, dir, beamCols[other.stateID])
-				go hitEffectCrit(other.pos, dir, beamCols[other.stateID])
-				go hitEffectCrit(other.pos, dir, beamCols[other.stateID])
-				go hitEffectCrit(other.pos, dir, beamCols[other.stateID])
+				for range 6 { go hitEffectCrit(other.pos, dir, hitCols[other.stateID]) }
 				localScore += 5
 			}
 		default:
@@ -264,9 +239,9 @@ func Break() {
 // Collect all (local) input and send down a single channel
 func readLocalInputs(inputCh chan signal) {
 	for {
-		if SIM_FRAME < START_FRAME + RB_BUFFER_LEN * 3 {
-			continue
-		}
+		//if SIM_FRAME < START_FRAME + RB_BUFFER_LEN * 3 {
+		//	continue
+		//}
 		ev := scr.PollEvent()
 		if key, ok := ev.(*tcell.EventKey); ok {
 
@@ -292,6 +267,7 @@ func readLocalInputs(inputCh chan signal) {
 				inputCh <-iRight
 			case ' ':
 				inputCh <-iShot
+
 
 			case '!':
 				variablePage = 1

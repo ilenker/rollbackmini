@@ -354,8 +354,7 @@ func newBarGraph(x, y int) func(int) {
 				i_ = wrapInt(i_ - 1, height)
 			}
 
-			v = v.Add(VecRGB{20, 0, 0})
-			v = v.Sub(VecRGB{0, 10, 10})
+			v = v.add(VecRGB{int32(10*i), int32(-5*i), int32(-5*i)})
 
 			scr.SetContent(counter,
 				(y + height) - i_,
@@ -446,8 +445,7 @@ func newLineGraph(x, y int) func(int) {
 			i_ = wrapInt(i_ - 1, height)
 		}
 
-		v = v.Add(VecRGB{int32(20*i), 0, 0})
-		v = v.Sub(VecRGB{0, int32(10*i), int32(10*i)})
+		v = v.add(VecRGB{int32(20*i), int32(-10*i), int32(-10*i)})
 
 		if x % 2 == 0 {
 			scr.SetContent(counter,
