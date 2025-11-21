@@ -58,6 +58,7 @@ func boardInit() {
 	for y := range MapH {
 		for x := range MapW {
 			board[y][x].state = Empty
+			vfxLayer[y][x] = cols[EmptyC]
 		}
 	}
 	drawPixelBox(scr, 2, 2, MapW - 1, MapH/2 - 1, tcell.ColorSteelBlue)

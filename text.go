@@ -297,7 +297,101 @@ func spinner(x, y, frameTime int, textBox func(msg string, args ...int) (int, in
 
 func newBarGraph(x, y int) func(int) {
 
-	ColGraph := tcell.StyleDefault.Foreground(tcell.ColorSeaGreen)
+	ColGraph := tcell.ColorSeaGreen
+	width  := 130
+	height :=  10
+
+	drawPixelBox(scr, x, y, width, height, tcell.ColorLightGreen)
+
+	scr.SetContent(x - 2,
+		y + int(float64(height) * float64(1)),
+		'-', nil, tcell.StyleDefault)
+	scr.SetContent(x - 1,
+		y + int(float64(height) * float64(1)),
+		'8', nil, tcell.StyleDefault)
+		//'0', nil, tcell.StyleDefault)
+
+	//scr.SetContent(x - 2,
+	//	y + int(float64(height) * float64(0.5)),
+	//	'0', nil, tcell.StyleDefault)
+	//	//'1', nil, tcell.StyleDefault)
+	scr.SetContent(x - 1,
+		y + int(float64(height) * float64(0.5)),
+		'0', nil, tcell.StyleDefault)
+		//'0', nil, tcell.StyleDefault)
+
+	scr.SetContent(x - 2,
+		y + int(float64(height) * float64(0)),
+		'+', nil, tcell.StyleDefault)
+		//'2', nil, tcell.StyleDefault)
+	scr.SetContent(x - 1,
+		y + int(float64(height) * float64(0)),
+		'8', nil, tcell.StyleDefault)
+		//'0', nil, tcell.StyleDefault)
+
+	counter := 1
+
+	return func(x int) {
+		if x == 0 { return }
+
+		counter++
+		if counter > width + 2 {
+			counter = 2 
+		}
+
+		for i := range height + 1 {
+			scr.SetContent(counter,
+				(y + height) - i,
+				'█', nil, tcell.StyleDefault.Foreground(tcell.ColorBlack))
+		}
+
+		v := newVecRGB(ColGraph.RGB())
+
+		for i := range x / 2 {
+
+			i_ := i
+			if i > height {
+				i_ = wrapInt(i_ - 1, height)
+			}
+
+			v = v.Add(VecRGB{20, 0, 0})
+			v = v.Sub(VecRGB{0, 10, 10})
+
+			scr.SetContent(counter,
+				(y + height) - i_,
+				'█', nil, stDef.Foreground(tcell.NewRGBColor(v.r, v.g, v.b)))
+		}
+
+		if x % 2 == 1 {
+			x /= 2
+			col := stDef.Foreground(tcell.NewRGBColor(v.r, v.g, v.b))
+
+			if x > height {
+				x = wrapInt(x - 1, height)
+
+				_, _, b, _ := scr.GetContent(counter, (y + height) - x)
+				bg, _, _ := b.Decompose()
+				col = col.Background(bg)
+			}
+
+			scr.SetContent(counter,
+				(y + height) - x,
+				'▄', nil, col)
+		}
+
+		for i := range height + 1 {
+			if counter > width { return }
+			scr.SetContent(counter + 1,
+				(y + height) - i,
+				'│', nil, tcell.StyleDefault.Foreground(tcell.Color122).Background(tcell.Color233))
+		}
+
+	}
+}
+
+func newLineGraph(x, y int) func(int) {
+
+	ColGraph := tcell.ColorSeaGreen
 	width  := 130
 	height :=  10
 
@@ -306,20 +400,25 @@ func newBarGraph(x, y int) func(int) {
 	scr.SetContent(x - 1,
 		y + int(float64(height) * float64(1)),
 		'0', nil, tcell.StyleDefault)
+		//'0', nil, tcell.StyleDefault)
 
 	scr.SetContent(x - 2,
 		y + int(float64(height) * float64(0.5)),
 		'1', nil, tcell.StyleDefault)
+		//'1', nil, tcell.StyleDefault)
 	scr.SetContent(x - 1,
 		y + int(float64(height) * float64(0.5)),
 		'0', nil, tcell.StyleDefault)
+		//'0', nil, tcell.StyleDefault)
 
 	scr.SetContent(x - 2,
 		y + int(float64(height) * float64(0)),
 		'2', nil, tcell.StyleDefault)
+		//'2', nil, tcell.StyleDefault)
 	scr.SetContent(x - 1,
 		y + int(float64(height) * float64(0)),
 		'0', nil, tcell.StyleDefault)
+		//'0', nil, tcell.StyleDefault)
 
 	counter := 1
 
@@ -327,28 +426,64 @@ func newBarGraph(x, y int) func(int) {
 		if x == 0 { return }
 
 		counter++
-		if counter > width {
+		if counter > width + 2 {
 			counter = 2 
 		}
 
-		for i := range height {
+		for i := range height + 1 {
 			scr.SetContent(counter,
 				(y + height) - i,
 				'█', nil, tcell.StyleDefault.Foreground(tcell.ColorBlack))
 		}
 
-		for i := range x / 2 {
-			scr.SetContent(counter,
-				(y + height) - i,
-				'█', nil, ColGraph)
+		v := newVecRGB(ColGraph.RGB())
+
+		i := x / 2 
+
+		i_ := i
+
+		if i > height {
+			i_ = wrapInt(i_ - 1, height)
 		}
 
-		if x % 2 == 1 {
+		v = v.Add(VecRGB{int32(20*i), 0, 0})
+		v = v.Sub(VecRGB{0, int32(10*i), int32(10*i)})
+
+		if x % 2 == 0 {
 			scr.SetContent(counter,
-				(y + height) - x / 2,
-				'▄', nil, ColGraph)
-			return
+				(y + height) - i_,
+				'▀', nil, stDef.Foreground(tcell.NewRGBColor(v.r, v.g, v.b)))
+		} else {
+			scr.SetContent(counter,
+				(y + height) - i_,
+				'▄', nil, stDef.Foreground(tcell.NewRGBColor(v.r, v.g, v.b)))
+
 		}
+
+		//if x % 2 == 1 {
+		//	x /= 2
+		//	col := stDef.Foreground(tcell.NewRGBColor(v.r, v.g, v.b))
+
+		//	if x > height {
+		//		x = wrapInt(x - 1, height)
+
+		//		_, _, b, _ := scr.GetContent(counter, (y + height) - x)
+		//		bg, _, _ := b.Decompose()
+		//		col = col.Background(bg)
+		//	}
+
+		//	scr.SetContent(counter,
+		//		(y + height) - x,
+		//		'▄', nil, col)
+		//}
+
+		for i := range height + 1 {
+			if counter > width { return }
+			scr.SetContent(counter + 1,
+				(y + height) - i,
+				'│', nil, tcell.StyleDefault.Foreground(tcell.Color122).Background(tcell.Color233))
+		}
+
 	}
 }
 

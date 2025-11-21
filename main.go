@@ -28,6 +28,7 @@ var player2 Snake
 var localPlayerPtr *Snake
 var peerPlayerPtr  *Snake
 
+var _simSamples int64 = 0
 
 func main() {
 							/*#### INIT ####*/
@@ -54,12 +55,15 @@ func main() {
 	boardInit()
 	textBoxesInit()
 
+	startCol := newVecRGB(tcell.ColorSteelBlue.RGB())
+	rgbOsc := newRGBOscillator(startCol)
+
 	localInputCh := make(chan signal, 8)
 	go readLocalInputs(localInputCh)
 
 	frameDiffGraph = newBarGraph(2, 19)
 
-	render(scr, 2, 2)
+	render(scr, MapX, MapY)
 
 	simTick := time.NewTicker(SIM_TIME)
 
@@ -94,6 +98,7 @@ func main() {
 /* ············································································· Main Loop       */
 	// qwfp
 	for {
+		simStart := time.Now()
 		<-simTick.C
 
 		if !online { goto SkipRollback }
@@ -193,6 +198,8 @@ func main() {
 		}
 
 /* ······················································································ Render */
+		drawPixelBox(scr, 2, 2, MapW - 1, MapH/2 - 1, rgbOsc())
+
 		scoreBox(fmt.Sprintf("[%02d]:[%02d]", localScore, peerScore), 0, 0)
 		setColor(18,1, cols[getLocalPlayerPtr().stateID])
 		setColor(19,1, cols[getLocalPlayerPtr().stateID])
@@ -200,9 +207,15 @@ func main() {
 		setColor(24,1, cols[getPeerPlayerPtr().stateID])
 
 		frameBox(fmt.Sprintf(" [%05d] ", SIM_FRAME), 0, 0)
-		errorBox(fmt.Sprintf("[%d]", scr.Colors()), 0, 0)
 
-		drawPixelBox(scr, 2, 2, MapW - 1, MapH/2 - 1, tcell.ColorSteelBlue)
+		_simSamples += (time.Duration(SIM_TIME) - time.Since(simStart)).Microseconds() / 250
+
+		if SIM_FRAME % 5 == 0 {
+			frameDiffGraph(
+				int(_simSamples / 5) + 6,
+				)
+			_simSamples = 0
+		}
 
 		render(scr, MapX, MapY)
 		SIM_FRAME++
@@ -241,7 +254,7 @@ func Break() {
 			}
 
 			variableDisplay()
-			render(scr, 2, 2)
+			render(scr, MapX, MapY)
 		} 
 	}
 

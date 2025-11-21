@@ -3,6 +3,7 @@ package main
 import (
 	"time"
 	"math"
+	"unsafe"
 )
 
 type Vec2 struct {
@@ -11,9 +12,13 @@ type Vec2 struct {
 }
 
 type VecRGB struct {
-	r uint8
-	g uint8
-	b uint8
+	r int32
+	g int32
+	b int32
+}
+
+func newVecRGB[T int | int8 | int16 | int32 | int64] (r T, g T, b T) VecRGB {
+	return VecRGB{int32(r), int32(g), int32(b)}
 }
 
 
@@ -156,4 +161,8 @@ func (v1 VecRGB) Sub(v2 VecRGB) VecRGB {
 	if int(v1.b) - int(v2.b) < 0 { v3.b = 0 } else {v3.g = v1.g - v2.g }
 
 	return v3
+}
+
+func fB2i(b bool) int {
+    return int(*(*byte)(unsafe.Pointer(&b)))
 }

@@ -10,6 +10,7 @@ import (
 
 type colorID = uint8
 var COLORTERM_OG string
+var stDef = tcell.StyleDefault
 
 const (
 	EmptyC colorID = iota
@@ -90,10 +91,8 @@ func render(s tcell.Screen, xOffset, yOffset int) {
 				lower = lowerVfx
 			}
 
-			r := ' '
-			st := tcell.StyleDefault
-
-			r, st = '▀', st.Foreground(upper).Background(lower)
+			r := '▀'
+			st := tcell.StyleDefault.Foreground(upper).Background(lower)
 
 			s.SetContent(x + xOffset, y + yOffset, r, nil, st)
 
@@ -103,12 +102,32 @@ func render(s tcell.Screen, xOffset, yOffset int) {
 	s.Show()
 }
 
+
 func newRGBOscillator(rgbInit VecRGB) func() tcell.Color {
 	rPol := 1
 	gPol := 1
 	bPol := 1
-	rgb := rgbInit
-	return
+
+	d := 1
+
+	v := rgbInit
+
+	return func() tcell.Color {
+
+		v.r += int32(rPol * d)
+		v.g += int32(gPol * d)
+		v.b += int32(bPol * d)
+
+		rPol = rPol + (fB2i(v.r == 255 || v.r == 0) * (rPol * -1) * 2)
+		gPol = gPol + (fB2i(v.g == 255 || v.g == 0) * (gPol * -1) * 2)
+		bPol = bPol + (fB2i(v.b == 255 || v.b == 0) * (bPol * -1) * 2)
+
+		r := v.r
+		g := v.g
+		b := v.b
+
+		return tcell.NewRGBColor(r, g, b)
+	}
 }
 
 
@@ -142,7 +161,7 @@ func beamEffect(start Vec2, dist int, dir Vec2, colorSeq []colorID) {
 				break
 			}
 			if rand.Intn(20) < chance {
-				vfxLayer[pos.y][pos.x] = col
+				vfxLayer[pos.y][pos.x] = cols[col]
 			}
 			if d > 0 {
 				d--
@@ -293,7 +312,7 @@ func hitEffect2nd(start Vec2, baseturns float64, colorSeq []colorID) {
 			}
 
 			if rand.Intn(20) < chance {
-				vfxLayer[pos.y][pos.x] = col
+				vfxLayer[pos.y][pos.x] = cols[col]
 			}
 
 			turns += curve
