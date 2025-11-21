@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"time"
+	////"math/rand"
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -30,11 +31,12 @@ var peerPlayerPtr  *Snake
 
 var _simSamples int64 = 0
 
+
 func main() {
 							/*#### INIT ####*/
 	FrameDiffBuffer = makeAverageIntBuffer(20)
-	player1 = snakeMake(Vec2{(MapW/2) ,  6 + MapH/2}, R, P1Head)
-	player2 = snakeMake(Vec2{(MapW/2) , -7 + MapH/2}, R, P2Head)
+	player1 = snakeMake(Vec2{(MapW/2) ,  11 + MapH/2}, R, P1Head)
+	player2 = snakeMake(Vec2{(MapW/2) , -12 + MapH/2}, R, P2Head)
 	loadConfig("config.json")
 
 	if online {
@@ -61,7 +63,7 @@ func main() {
 	localInputCh := make(chan signal, 8)
 	go readLocalInputs(localInputCh)
 
-	frameDiffGraph = newBarGraph(2, 19)
+	frameDiffGraph = newBarGraph(MapW + MapY + 4, 21)
 
 	render(scr, MapX, MapY)
 
@@ -176,10 +178,10 @@ func main() {
 		drawPixelBox(scr, 2, 2, MapW - 1, MapH/2 - 1, rgbOsc())
 
 		scoreBox(fmt.Sprintf("[%02d]:[%02d]", localScore, peerScore), 0, 0)
-		setColor(18,1, cols[getLocalPlayerPtr().stateID])
-		setColor(19,1, cols[getLocalPlayerPtr().stateID])
-		setColor(23,1, cols[getPeerPlayerPtr().stateID])
-		setColor(24,1, cols[getPeerPlayerPtr().stateID])
+		setColor(13,1, cols[getLocalPlayerPtr().stateID])
+		setColor(14,1, cols[getLocalPlayerPtr().stateID])
+		setColor(18,1, cols[getPeerPlayerPtr().stateID])
+		setColor(19,1, cols[getPeerPlayerPtr().stateID])
 
 		frameBox(fmt.Sprintf(" [%05d] ", SIM_FRAME), 0, 0)
 
@@ -262,8 +264,10 @@ func readLocalInputs(inputCh chan signal) {
 			// Keymap
 			switch key.Rune() {
 			case 'x':
+				FOO--
 				inputCh <-iLeft
 			case 'd':
+				FOO++
 				inputCh <-iRight
 			case ' ':
 				inputCh <-iShot

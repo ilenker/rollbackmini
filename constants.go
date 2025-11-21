@@ -42,8 +42,8 @@ const (
 
 // Map settings
 
-const MapH = 30
-const MapW = 40
+const MapH = 60
+const MapW = 30
 const MapX = 2
 const MapY = 2
 const SUBCELL_SIZE = 32			// Resolution of logical subcells - enables finer control over movespeed

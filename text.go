@@ -107,9 +107,9 @@ func displayVariables(args ...Arg) {
 
 
 func textBoxesInit () {
-	debugBox = newTextBox(scr, MapW + 5 , 1, 30, 15, true)
-	errorBox = newTextBox(scr, MapW + 38, 1, 15, 15, true)
-	callsBox = newTextBox(scr, MapW + 56, 1, 30, 15, true)
+	debugBox = newTextBox(scr, MapW + 5 , 2, 20, 16, true)
+	errorBox = newTextBox(scr, MapW + 28, 2, 20, 16, true)
+	callsBox = newTextBox(scr, MapW + 51, 2, 20, 16, true)
 
 	scoreBox = newTextBox(
 		scr,
@@ -134,7 +134,7 @@ func newTextBox(
 	xO, yO := xOrigin, yOrigin
 
 	if drawBox {
-		drawRoundBox(scr, xOrigin, yOrigin, width, height, tcell.NewHexColor(0xFFFFFF))
+		drawRoundBox(scr, xOrigin, yOrigin, width, height, textCol)
 	}
 
 	return func(msg string, args ...int) (int, int) {
@@ -159,7 +159,7 @@ func newTextBox(
 				return x, y
 			}
 			if r != '\n' {
-				scr.SetContent(x, y, r, nil, tcell.StyleDefault)	
+				scr.SetContent(x, y, r, nil, stText)	
 				x++
 				if x > (xOrigin + w) {
 					y++
@@ -298,10 +298,10 @@ func spinner(x, y, frameTime int, textBox func(msg string, args ...int) (int, in
 func newBarGraph(x, y int) func(int) {
 
 	ColGraph := tcell.ColorSeaGreen
-	width  := 130
+	width  :=  80
 	height :=  10
 
-	drawPixelBox(scr, x, y, width, height, tcell.ColorLightGreen)
+	drawPixelBox(scr, x, y, width, height, tcell.ColorDarkSlateGrey)
 
 	scr.SetContent(x - 2,
 		y + int(float64(height) * float64(1)),
@@ -329,25 +329,25 @@ func newBarGraph(x, y int) func(int) {
 		'8', nil, tcell.StyleDefault)
 		//'0', nil, tcell.StyleDefault)
 
-	counter := 1
+	counter := x - 1
 
-	return func(x int) {
-		if x == 0 { return }
+	return func(n int) {
+		if n == 0 { return }
 
 		counter++
-		if counter > width + 2 {
-			counter = 2 
+		if counter > x + width {
+			counter = x
 		}
 
 		for i := range height + 1 {
 			scr.SetContent(counter,
 				(y + height) - i,
-				'█', nil, tcell.StyleDefault.Foreground(tcell.ColorBlack))
+				' ', nil, tcell.StyleDefault.Foreground(tcell.ColorBlack))
 		}
 
 		v := newVecRGB(ColGraph.RGB())
 
-		for i := range x / 2 {
+		for i := range n / 2 {
 
 			i_ := i
 			if i > height {
@@ -361,28 +361,52 @@ func newBarGraph(x, y int) func(int) {
 				'█', nil, stDef.Foreground(tcell.NewRGBColor(v.r, v.g, v.b)))
 		}
 
-		if x % 2 == 1 {
-			x /= 2
+		if n % 2 == 1 {
+			n /= 2
 			col := stDef.Foreground(tcell.NewRGBColor(v.r, v.g, v.b))
 
-			if x > height {
-				x = wrapInt(x - 1, height)
+			if n > height {
+				n = wrapInt(n - 1, height)
 
-				_, _, b, _ := scr.GetContent(counter, (y + height) - x)
+				_, _, b, _ := scr.GetContent(counter, (y + height) - n)
 				bg, _, _ := b.Decompose()
 				col = col.Background(bg)
 			}
 
 			scr.SetContent(counter,
-				(y + height) - x,
+				(y + height) - n,
 				'▄', nil, col)
 		}
 
 		for i := range height + 1 {
-			if counter > width { return }
-			scr.SetContent(counter + 1,
+			_c := counter
+			f := -10
+			if counter > x + width - 1 { return }
+			scr.SetContent(
+				counter + 1,
 				(y + height) - i,
-				'│', nil, tcell.StyleDefault.Foreground(tcell.Color122).Background(tcell.Color233))
+				'│', nil, tcell.StyleDefault.Foreground(tcell.Color146).Background(tcell.Color233))
+
+			for j := 1; j < 10; j++ {
+				if _c + j == x + width {
+					_c = x - j - 1
+				}
+
+				lookahead := _c + 1 + j
+				r, _, st, _ := scr.GetContent(lookahead, (y + height) - i)
+				fg, bg, _ := st.Decompose()
+
+				if fg != tcell.ColorDefault {
+					fg = addRBGtoColor(VecRGB{int32(f), int32(f), int32(f)}, fg)
+				}
+				if bg != tcell.ColorDefault {
+					bg = addRBGtoColor(VecRGB{int32(f), int32(f), int32(f)}, bg)
+				}
+				scr.SetContent(
+					lookahead,
+					(y + height) - i,
+					r, nil, tcell.StyleDefault.Foreground(fg).Background(bg))
+			}
 		}
 
 	}

@@ -85,7 +85,7 @@ func (s *Snake) shoot() {
 	}
 	s.shooting = false
 
-	distance := 32
+	distance := 50
 
 	other := player2
 	if s.stateID == P2Head {

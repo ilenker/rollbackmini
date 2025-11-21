@@ -175,3 +175,10 @@ func (v1 VecRGB) add(v2 VecRGB) VecRGB {
 func fB2i(b bool) int {
     return int(*(*byte)(unsafe.Pointer(&b)))
 }
+
+func dist(v1, v2 Vec2) float64 {
+	return math.Sqrt(
+		math.Pow(float64(v1.x - v2.x), 2) +
+		math.Pow(float64(v1.y - v2.y), 2),
+		)
+}

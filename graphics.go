@@ -10,7 +10,11 @@ import (
 
 type colorID = uint8
 var COLORTERM_OG string
-var stDef = tcell.StyleDefault
+var stDef  = tcell.StyleDefault
+var stText = tcell.StyleDefault
+var textCol = tcell.ColorSlateGray
+
+var FOO float64 = 4
 
 
 const (
@@ -135,6 +139,7 @@ func newRGBOscillator(rgbInit VecRGB) func() tcell.Color {
 
 
 func stylesInit() {
+	stText = stText.Foreground(tcell.ColorSlateGray)
 	cols = map[colorID]tcell.Color{
 		EmptyC   : tcell.ColorBlack,
 		P1HeadC  : tcell.ColorBlue,
@@ -154,7 +159,7 @@ func stylesInit() {
 func beamEffect(start Vec2, dist int, dir Vec2, colorSeq []colorID) {
 
 	start = start.add(dir)
-	animLen := 26
+	animLen := dist
 
 	animate := func(col colorID, pos Vec2, d int, delay time.Duration, chance int) {
 		c := cols[col]
@@ -410,4 +415,29 @@ func setCOLORTERM() {
 
 func restoreCOLORTERM() {
 	os.Setenv("COLORTERM", COLORTERM_OG)	
+}
+
+func light(pos Vec2, lum int, col VecRGB) {
+
+	for i := pos.x - lum; i <= pos.x + lum; i++ {
+
+		for j := pos.y - lum; j <= pos.y + lum; j++ {
+
+			dist := int32(dist(pos, Vec2{i, j}))
+			dist *= 3
+
+			base := lightLayer[j][i]
+
+
+			bR, _, _ := base.RGB()
+
+			//bR = bR / 1+dist
+			//bG = bG / 1+dist
+			//bB = bB / 1+dist
+
+			bR =  dist / bR * 10
+
+			vfxLayer[j][i] = tcell.NewRGBColor(bR, bR, bR)
+		}
+	}
 }

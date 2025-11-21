@@ -19,6 +19,7 @@ type Cell struct {
 
 var	board    = [MapH+1][MapW+1]Cell{}
 var	vfxLayer = [MapH+1][MapW+1]tcell.Color{}
+var	lightLayer = [MapH+1][MapW+1]tcell.Color{}
 var SIM_FRAME uint16 = 1
 
 
@@ -59,6 +60,7 @@ func boardInit() {
 		for x := range MapW {
 			board[y][x].state = Empty
 			vfxLayer[y][x] = cols[EmptyC]
+			lightLayer[y][x] = cols[Shot3C]
 		}
 	}
 	drawPixelBox(scr, 2, 2, MapW - 1, MapH/2 - 1, tcell.ColorSteelBlue)
