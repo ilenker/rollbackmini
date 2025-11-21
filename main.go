@@ -248,42 +248,6 @@ func Break() {
 }
 
 
-func render(s tcell.Screen, xOffset, yOffset int) {
-	// s.Clear()
-	// For each terminal row (board y-coordinates map 2:1 onto terminal y-coordinates)
-	for y := range (MapH / 2) {
-		lyUpper := y * 2           // Calculate corresponding Logical Row, given Terminal Row
-		lyLower := y * 2 + 1
-
-		// For each terminal cell (board x-coordinates map 1:1 onto terminal y-coordinates)
-		for x := range MapW {
-			upper := board[lyUpper][x].col
-			lower := board[lyLower][x].col
-
-			upperVfx := vfxLayer[lyUpper][x]
-			lowerVfx := vfxLayer[lyLower][x]
-
-			if upperVfx != EmptyC {
-				upper = upperVfx
-			}
-
-			if lowerVfx != EmptyC {
-				lower = lowerVfx
-			}
-
-			r := ' '
-			st := tcell.StyleDefault
-
-			r, st = '▀', st.Foreground(cols[upper]).Background(cols[lower])
-
-			s.SetContent(x + xOffset, y + yOffset, r, nil, st)
-
-		}
-	}
-
-	s.Show()
-}
-
 // Collect all (local) input and send down a single channel
 func readLocalInputs(inputCh chan signal) {
 	for {
