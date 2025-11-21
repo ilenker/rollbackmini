@@ -30,7 +30,6 @@ var peerPlayerPtr  *Snake
 
 
 func main() {
-
 							/*#### INIT ####*/
 	FrameDiffBuffer = makeAverageIntBuffer(20)
 	player1 = snakeMake(Vec2{(MapW/2) ,  6 + MapH/2}, R, P1Head)
@@ -46,9 +45,11 @@ func main() {
 	}
 
 	stylesInit()
-	scr, err = tcell.NewScreen(); F(err, "")
-	err = scr.Init();             F(err, "")
-	scr.SetStyle(ColEmpty)
+	setCOLORTERM()
+	defer restoreCOLORTERM()
+	scr, err = tcell.NewScreen()	;F(err, "")
+	err = scr.Init()				;F(err, "")
+	//scr.SetStyle(ColEmpty)
 
 	boardInit()
 	textBoxesInit()
@@ -129,7 +130,7 @@ func main() {
 				goto SkipRollback
 			}
 
-/* ·····································································┬·············· Rollback
+/* ·····································································┬·············· Rollback  ·
 ·                                                                       └──Net Out - Hit Confirm */
 			prePos := getPeerPlayerPtr().pos
 			ROLLBACK = true
@@ -153,8 +154,8 @@ func main() {
 
 		SkipRollback:
 
-/* ············································································Stage Local Input */
-/*                                                                    Net Out - Send Local Input */
+/* ································································┬···········Stage Local Input  ·
+·                                                                  └──Net Out - Send Local Input */
 		drainLocalInputCh(localInputCh)
 
 /* ············································································· Push Save State */
@@ -193,12 +194,16 @@ func main() {
 
 /* ······················································································ Render */
 		scoreBox(fmt.Sprintf("[%02d]:[%02d]", localScore, peerScore), 0, 0)
-		setStyle(18,1, cols[colorID(getLocalPlayerPtr().stateID)])
-		setStyle(19,1, cols[colorID(getLocalPlayerPtr().stateID)])
-		setStyle(23,1, cols[colorID(getPeerPlayerPtr().stateID)])
-		setStyle(24,1, cols[colorID(getPeerPlayerPtr().stateID)])
+		setColor(18,1, cols[getLocalPlayerPtr().stateID])
+		setColor(19,1, cols[getLocalPlayerPtr().stateID])
+		setColor(23,1, cols[getPeerPlayerPtr().stateID])
+		setColor(24,1, cols[getPeerPlayerPtr().stateID])
 
 		frameBox(fmt.Sprintf(" [%05d] ", SIM_FRAME), 0, 0)
+		errorBox(fmt.Sprintf("[%d]", scr.Colors()), 0, 0)
+
+		drawPixelBox(scr, 2, 2, MapW - 1, MapH/2 - 1, tcell.ColorSteelBlue)
+
 		render(scr, MapX, MapY)
 		SIM_FRAME++
 	}
@@ -242,59 +247,6 @@ func Break() {
 
 }
 
-
-func render(s tcell.Screen, xOffset, yOffset int) {
-	// s.Clear()
-	// For each terminal row (board y-coordinates map 2:1 onto terminal y-coordinates)
-	for y := range (MapH / 2) {
-		lyUpper := y * 2           // Calculate corresponding Logical Row, given Terminal Row
-		lyLower := y * 2 + 1
-
-		// For each terminal cell (board x-coordinates map 1:1 onto terminal y-coordinates)
-		for x := range MapW {
-			upper := cols[board[lyUpper][x].col]
-			lower := cols[board[lyLower][x].col]
-
-			upperVfx := cols[vfxLayer[lyUpper][x]]
-			lowerVfx := cols[vfxLayer[lyLower][x]]
-
-			if upperVfx != ColEmpty {
-				upper = upperVfx
-			}
-
-			if lowerVfx != ColEmpty {
-				lower = lowerVfx
-			}
-
-			r := ' '
-			style := ColEmpty
-
-			// Blend the two 'styles'
-			// take foreground color of each logical cell
-			// set foreground of rune to upper color
-			// set background of rune to lower color 
-			// half-block ▀ displays top color (fg) and bottom color (bg) in one cell
-			switch {
-			case upper != ColEmpty && lower != ColEmpty:
-				fg, _, _ := upper.Decompose()
-				bg, _, _ := lower.Decompose()
-				blend := ColEmpty.Foreground(fg).Background(bg)
-				r, style = '▀', blend
-
-			case upper != ColEmpty:
-				r, style = '▀', upper
-
-			case lower != ColEmpty:
-				r, style = '▄', lower
-			}
-
-			s.SetContent(x + xOffset, y + yOffset, r, nil, style)
-
-		}
-	}
-
-	s.Show()
-}
 
 // Collect all (local) input and send down a single channel
 func readLocalInputs(inputCh chan signal) {
@@ -341,8 +293,8 @@ func readLocalInputs(inputCh chan signal) {
 			case '^':
 				variablePage = 6
 			case '0':
-				callsBox("\\clr")
-				errorBox("\\clr")
+				callsBox.Clear()
+				errorBox.Clear()
 			}
 
 		} 

@@ -1,13 +1,15 @@
 package main
 
 import (
+	"os"
 	"time"
 	"math"
 	"math/rand"
 	"github.com/gdamore/tcell/v2"
 )
 
-type colorID uint8
+type colorID = uint8
+var COLORTERM_OG string
 
 const (
 	EmptyC colorID = iota
@@ -15,99 +17,116 @@ const (
 	P2HeadC
 	WallC
 
-	_WhiteC
+	WhiteC
 
-	_ShotP1C
-	_ShotP2C
+	ShotP1C
+	ShotP2C
 
-	_Shot2C
-	_Shot3C
+	Shot2C
+	Shot3C
 )
 
-
-// These are tied 1:1 to a cellState...
-var ColEmpty   tcell.Style
-var ColP1Head  tcell.Style
-var ColP2Head  tcell.Style
-var ColDefault tcell.Style
-
-var cols map[colorID]tcell.Style  // ...via this map.
-
-
-// These have no tie to a cellState
-var ColWhite   tcell.Style
-var ColShotP1C tcell.Style
-var ColShotP2C tcell.Style
-var ColShot2C  tcell.Style
-var ColShot3C  tcell.Style
-
+var cols map[colorID]tcell.Color
 
 // Color Sequences for beam animation
 var p1BeamCols = []colorID {
-	_WhiteC,
-	_ShotP1C,
-	_Shot2C,
-	_Shot3C,
+	WhiteC,
+	ShotP1C,
+	Shot2C,
+	Shot3C,
 }
 
 var p1HitCols = []colorID {
-	_ShotP1C,
-	_ShotP1C,
-	_Shot2C,
-	_Shot3C,
+	ShotP1C,
+	ShotP1C,
+	Shot2C,
+	Shot3C,
 }
 
 var p2BeamCols = []colorID {
-	_WhiteC,
-	_ShotP2C,
-	_ShotP2C,
-	_Shot3C,
+	WhiteC,
+	ShotP2C,
+	ShotP2C,
+	Shot3C,
 }
 
 var p2HitCols = []colorID {
-	_ShotP2C,
-	_ShotP2C,
-	_Shot2C,
-	_Shot3C,
+	ShotP2C,
+	ShotP2C,
+	Shot2C,
+	Shot3C,
 }
 
 var beamCols = map[cellState][]colorID{
-	P1Head : p1BeamCols,
-	P2Head : p2BeamCols,
+	P1Head: p1BeamCols,
+	P2Head: p2BeamCols,
 }
 
 var hitCols = map[cellState][]colorID{
-	P1Head : p1HitCols,
-	P2Head : p2HitCols,
+	P1Head: p1HitCols,
+	P2Head: p2HitCols,
 }
 
+func render(s tcell.Screen, xOffset, yOffset int) {
+	// s.Clear()
+	// For each terminal row (board y-coordinates map 2:1 onto terminal y-coordinates)
+	for y := range (MapH / 2) {
+		lyUpper := y * 2           // Calculate corresponding Logical Row, given Terminal Row
+		lyLower := y * 2 + 1
+
+		// For each terminal cell (board x-coordinates map 1:1 onto terminal y-coordinates)
+		for x := range MapW {
+			upper := cols[board[lyUpper][x].col]
+			lower := cols[board[lyLower][x].col]
+
+			upperVfx := vfxLayer[lyUpper][x]
+			lowerVfx := vfxLayer[lyLower][x]
+
+			if upperVfx != cols[EmptyC] {
+				upper = upperVfx
+			}
+
+			if lowerVfx != cols[EmptyC] {
+				lower = lowerVfx
+			}
+
+			r := ' '
+			st := tcell.StyleDefault
+
+			r, st = '▀', st.Foreground(upper).Background(lower)
+
+			s.SetContent(x + xOffset, y + yOffset, r, nil, st)
+
+		}
+	}
+
+	s.Show()
+}
+
+func newRGBOscillator(rgbInit VecRGB) func() tcell.Color {
+	rPol := 1
+	gPol := 1
+	bPol := 1
+	rgb := rgbInit
+	return
+}
+
+
+
 func stylesInit() {
-	ColEmpty   = tcell.StyleDefault.Foreground(tcell.ColorBlack     ).Background(tcell.ColorBlack)
-	ColP1Head  = tcell.StyleDefault.Foreground(tcell.ColorBlue      ).Background(tcell.ColorBlack)
-	ColP2Head  = tcell.StyleDefault.Foreground(tcell.ColorOrange    ).Background(tcell.ColorBlack)
-	ColDefault = tcell.StyleDefault.Foreground(tcell.ColorWhiteSmoke).Background(tcell.ColorBlack)
+	cols = map[colorID]tcell.Color{
+		EmptyC   : tcell.ColorBlack,
+		P1HeadC  : tcell.ColorBlue,
+		P2HeadC  : tcell.ColorOrange,
+		WallC    : tcell.ColorWhiteSmoke,
 
-	ColWhite   = tcell.StyleDefault.Foreground(tcell.ColorWhite     ).Background(tcell.ColorBlack)
+		WhiteC  : tcell.ColorWhite,
 
-	ColShotP1C = tcell.StyleDefault.Foreground(tcell.ColorBlue      ).Background(tcell.ColorBlack)
-	ColShotP2C = tcell.StyleDefault.Foreground(tcell.ColorOrange    ).Background(tcell.ColorBlack)
+		ShotP1C : tcell.ColorBlue,
+		ShotP2C : tcell.ColorOrange,
 
-	ColShot2C  = tcell.StyleDefault.Foreground(tcell.NewRGBColor( 60,  13,  16)    ).Background(tcell.ColorBlack)
-	ColShot3C  = tcell.StyleDefault.Foreground(tcell.NewRGBColor( 49,  11,  12)    ).Background(tcell.ColorBlack)
-
-	cols = map[colorID]tcell.Style{
-		EmptyC   : ColEmpty,
-		P1HeadC  : ColP1Head,
-		P2HeadC  : ColP2Head,
-		WallC    : ColDefault,
-		
-		_WhiteC  : ColWhite,
-
-		_ShotP1C : ColShotP1C, 
-		_ShotP2C : ColShotP2C, 
-
-		_Shot2C  : ColShot2C, 
-		_Shot3C  : ColShot3C, 
+		Shot2C  : tcell.NewRGBColor( 60,  13,  16),
+		Shot3C  : tcell.NewRGBColor( 49,  11,  12),
 	}
 }
 
@@ -257,6 +276,7 @@ func hitEffectCrit(start Vec2, baseturns float64, colorSeq []colorID) {
 
 }
 
+
 func hitEffect2nd(start Vec2, baseturns float64, colorSeq []colorID) {
 
 	animLen := 0 + rand.Intn(5)
@@ -295,11 +315,12 @@ func hitEffect2nd(start Vec2, baseturns float64, colorSeq []colorID) {
 
 }
 
+
 func rollbackStreak(start Vec2, dist int, dir Vec2, colID colorID) {
 
 	start = start.Add(dir)
 
-	animate := func(col colorID, pos Vec2, d int, delay time.Duration, chance int) {
+	animate := func(col tcell.Color, pos Vec2, d int, delay time.Duration, chance int) {
 		for range dist {
 			time.Sleep((SIM_TIME/2) * delay)
 			if pos.y >= MapH || pos.y < 0 {
@@ -317,22 +338,33 @@ func rollbackStreak(start Vec2, dist int, dir Vec2, colID colorID) {
 	}
 
 	// Frame 1
-	animate(_WhiteC, start, dist, 0, 20)
+	animate(cols[WhiteC], start, dist, 0, 20)
 	time.Sleep(SIM_TIME)
-	animate(EmptyC, start, dist, 1, 20)
-	animate(EmptyC, start, dist, 1, 20)
+	animate(cols[EmptyC], start, dist, 1, 20)
+	animate(cols[EmptyC], start, dist, 1, 20)
 
 }
+
 
 func cooldownBar(origin Vec2, length int, colorID colorID) {
 
 	if length == 0 {
-		vfxLayer[origin.y][origin.x] = EmptyC
+		vfxLayer[origin.y][origin.x] = cols[EmptyC]
 	}
 
 	for i := range length {
-		vfxLayer[origin.y][origin.x + i + 1] = EmptyC
-		vfxLayer[origin.y][origin.x + i    ] = colorID
+		vfxLayer[origin.y][origin.x + i + 1] = cols[EmptyC]
+		vfxLayer[origin.y][origin.x + i    ] = cols[colorID]
 	}
 
+}
+
+
+func setCOLORTERM() {
+	COLORTERM_OG = os.Getenv("COLORTERM")
+	os.Setenv("COLORTERM", "truecolor")	
+}
+
+func restoreCOLORTERM() {
+	os.Setenv("COLORTERM", COLORTERM_OG)	
 }
