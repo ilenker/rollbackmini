@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"fmt"
 	"time"
 	"math"
 	"math/rand"
@@ -9,12 +10,14 @@ import (
 )
 
 type colorID = uint8
+
 var COLORTERM_OG string
 var stDef  = tcell.StyleDefault
 var stText = tcell.StyleDefault
 var textCol = tcell.ColorSlateGray
 
-var FOO float64 = 4
+var	vfxLayer   = [MapH+1][MapW+1]tcell.Color{}
+var	lightLayer = [MapH+1][MapW+1]Vec3[float32]{}
 
 
 const (
@@ -75,7 +78,6 @@ var hitCols = map[cellState][]colorID{
 
 
 func render(s tcell.Screen, xOffset, yOffset int) {
-	// s.Clear()
 	// For each terminal row (board y-coordinates map 2:1 onto terminal y-coordinates)
 	for y := range (MapH / 2) {
 		lyUpper := y * 2           // Calculate corresponding Logical Row, given Terminal Row
@@ -83,8 +85,8 @@ func render(s tcell.Screen, xOffset, yOffset int) {
 
 		// For each terminal cell (board x-coordinates map 1:1 onto terminal y-coordinates)
 		for x := range MapW {
-			upper := cols[board[lyUpper][x].col]
-			lower := cols[board[lyLower][x].col]
+			upper := cols[board[lyUpper][x].state]
+			lower := cols[board[lyLower][x].state]
 
 			upperVfx := vfxLayer[lyUpper][x]
 			lowerVfx := vfxLayer[lyLower][x]
@@ -95,6 +97,19 @@ func render(s tcell.Screen, xOffset, yOffset int) {
 
 			if lowerVfx != cols[EmptyC] {
 				lower = lowerVfx
+			}
+
+			//upper = scaleColor(upper, Vec3[float32]{_foo, _foo, _foo})
+			//lower = scaleColor(lower, Vec3[float32]{_foo, _foo, _foo})
+			upper = scaleColor(upper, lightLayer[lyUpper][x])
+			lower = scaleColor(lower, lightLayer[lyLower][x])
+
+			if board[lyUpper][x].state == P1Head ||
+			   board[lyLower][x].state == P1Head {
+				rS, gS, bS := upper.RGB()
+				rS_, gS_, bS_ := lower.RGB()
+				errorBox(fmt.Sprintf("up%3d:%3d:%3d", rS, gS, bS), 0, 6)
+				errorBox(fmt.Sprintf("dn%3d:%3d:%3d", rS_, gS_, bS_), 0, 7)
 			}
 
 			r := '▀'
@@ -141,7 +156,7 @@ func newRGBOscillator(rgbInit VecRGB) func() tcell.Color {
 func stylesInit() {
 	stText = stText.Foreground(tcell.ColorSlateGray)
 	cols = map[colorID]tcell.Color{
-		EmptyC   : tcell.ColorBlack,
+		EmptyC   : tcell.NewRGBColor(1, 1, 1),
 		P1HeadC  : tcell.ColorBlue,
 		P2HeadC  : tcell.ColorOrange,
 		WallC    : tcell.ColorWhiteSmoke,
@@ -218,7 +233,7 @@ func hitEffect(start Vec2, baseturns float64, colorSeq []colorID) {
 			}
 
 			if rand.Intn(20) < chance {
-				board[pos.y][pos.x].col = col
+				vfxLayer[pos.y][pos.x] = cols[col]
 			}
 
 			turns += curve
@@ -407,6 +422,20 @@ func addRBGtoColor(v VecRGB, c tcell.Color) tcell.Color {
 	return tcell.NewRGBColor(v.r, v.g, v.b)
 }
 
+func scaleColor(c tcell.Color, v Vec3[float32]) tcell.Color {
+	r, g, b := c.RGB()
+
+	//if r == 0 { r = 1 }
+	//if g == 0 { g = 1 }
+	//if b == 0 { b = 1 }
+
+	rS := clamp(float32(r) * v.x, 0, 255)
+	gS := clamp(float32(g) * v.y, 0, 255)
+	bS := clamp(float32(b) * v.z, 0, 255)
+
+	return tcell.NewRGBColor(int32(rS), int32(gS), int32(bS))
+}
+
 
 func setCOLORTERM() {
 	COLORTERM_OG = os.Getenv("COLORTERM")
@@ -417,27 +446,32 @@ func restoreCOLORTERM() {
 	os.Setenv("COLORTERM", COLORTERM_OG)	
 }
 
-func light(pos Vec2, lum int, col VecRGB) {
+// position, radius, luminance, color
+func light(p Vec2, r int, l float32, c Vec3[float32]) {
 
-	for i := pos.x - lum; i <= pos.x + lum; i++ {
+	l *= 2
 
-		for j := pos.y - lum; j <= pos.y + lum; j++ {
+	minL := float32(1.0)
+	dMax := int(dist(p, Vec2{p.x+r+1, p.y}))
 
-			dist := int32(dist(pos, Vec2{i, j}))
-			dist *= 3
+	errorBox(fmt.Sprintf("dMaxL: %d", dMax), 0, 1)
 
-			base := lightLayer[j][i]
+	for x := p.x - r;
+		x <= p.x + r;
+		x++ {
+
+		for y := p.y - r;
+			y <= p.y + r;
+			y++ {
 
 
-			bR, _, _ := base.RGB()
+			d := float32(dist(p, Vec2{x, y}))
 
-			//bR = bR / 1+dist
-			//bG = bG / 1+dist
-			//bB = bB / 1+dist
+			dNormal := iLerp32(0, dMax, d*(d/_foo))
+			if dNormal > 1 { continue }
 
-			bR =  dist / bR * 10
-
-			vfxLayer[j][i] = tcell.NewRGBColor(bR, bR, bR)
+			rL := lerp32(l, minL, dNormal)
+			lightLayer[y][x] = Vec3[float32]{rL, rL, rL}
 		}
 	}
 }

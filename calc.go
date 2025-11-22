@@ -6,22 +6,99 @@ import (
 	"unsafe"
 )
 
+/*······················································································kVec2    */
 type Vec2 struct {
 	x int
 	y int
 }
 
+func (v1 Vec2) scale(n int) Vec2 {
+	newX := wrapInt(v1.x * n, MapW)
+	newY := wrapInt(v1.y * n, MapH)
+	return Vec2{
+		newX,
+		newY,
+	}
+}
+
+func (v1 Vec2) add(v2 Vec2) Vec2 {
+	newX := wrapInt(v1.x + v2.x, MapW)
+	newY := wrapInt(v1.y + v2.y, MapH)
+	return Vec2{
+		newX,
+		newY,
+	}
+}
+
+func (v1 Vec2) addNoWrap(v2 Vec2) Vec2 {
+	return Vec2{
+		x: v1.x + v2.x,
+		y: v1.y + v2.y,
+	}
+}
+
+func (v1 Vec2) translate(angleRad float64, distance float64) Vec2 {
+    
+    dx := distance * math.Cos(angleRad)
+    dy := distance * math.Sin(angleRad)
+    
+    newX := v1.x + int(math.Round(dx))
+    newY := v1.y + int(math.Round(dy))
+    
+    return Vec2{x: newX, y: newY}
+}
+
+func dist(v1, v2 Vec2) float64 {
+	return math.Sqrt(
+		math.Pow(float64(v1.x - v2.x), 2) +
+		math.Pow(float64(v1.y - v2.y), 2),
+		)
+}
+
+
+/*······················································································kVec3    */
+type Vec3[T int | int8 | int16 | int32 | float32 | float64] struct {
+	x T
+	y T
+	z T
+}
+
+
+
+
+/*······················································································kVecRGB  */
 type VecRGB struct {
 	r int32
 	g int32
 	b int32
 }
 
+func (v1 VecRGB) add(v2 VecRGB) VecRGB {
+
+	v3 := v1
+	v3.r = v1.r + v2.r 
+	v3.b = v1.b + v2.b
+	v3.g = v1.g + v2.g
+
+	if v3.r > 255 { v3.r = 255 }
+	if v3.g > 255 { v3.g = 255 }
+	if v3.b > 255 { v3.b = 255 }
+
+	if v3.r < 0   { v3.r = 0   }
+	if v3.g < 0   { v3.g = 0   }
+	if v3.b < 0   { v3.b = 0   }
+
+	return v3
+}
+
+
 func newVecRGB[T int | int8 | int16 | int32 | int64] (r T, g T, b T) VecRGB {
 	return VecRGB{int32(r), int32(g), int32(b)}
 }
 
 
+
+/*······················································································kMath    */
 func AbsInt(n int) int {
 	if n < 0 {
 		return ^n + 1
@@ -37,37 +114,23 @@ func AbsInt16(n int16) int16 {
 	return n
 }
 
-// 1  = Extremely Slow
-// 2  = Ultra Slow
-// 3  = Very Slow
-// 4  = Slow
-// 5  = Medium
-// ..
-// 13 = M. Fast
-// ..
-// 16 = Fast
-// .. 
-// 32 = Very Fast
-// 64 = Ultra Fast
-// 128 = Extremely Fast
-// 512 = Bullet
-// 1024 = Laser
-
-// TODO: figure out a nice conversion between length and speed
-// The relationship will probably involve some logs or exponentials
-// Apparent speed changes decrease exponentially as SCPT increases.
-// Pretty much need to double SCPT to cause the same "amount of change"
-// in the apparent speed (see above notes: 1-2 feels about the same as )
-
 
 func lerp(x, y int, f float64) float64 {
 	return float64(x) * (1.0-f) + float64(y) * f
 }
 
+func lerp32(x, y, f float32) float32 {
+	return x * (1.0-f) + y * f
+}
 
 func iLerp(x, y int, num float64) float64 {
     if x == y { return 0 }
     return (num - float64(x)) / float64(y - x)
+}
+
+func iLerp32(x, y int, num float32) float32 {
+    if x == y { return 0 }
+    return (num - float32(x)) / float32(y - x)
 }
 
 
@@ -111,74 +174,20 @@ func makeAverageIntBuffer(size int) func(n int) (float64, []int)  {
 	}
 }
 
+func clamp[T int | int8 | int16 | int32 | float32 | float64](n, min, max T) T {
+	if n > max { return max }
+	if n < min { return min }
+	return n
+}
+
 
 func B2i(b bool) int {
 	if b { return 1 }
 	return 0
 }
 
-func (v1 Vec2) scale(n int) Vec2 {
-	newX := wrapInt(v1.x * n, MapW)
-	newY := wrapInt(v1.y * n, MapH)
-	return Vec2{
-		newX,
-		newY,
-	}
-}
-
-func (v1 Vec2) add(v2 Vec2) Vec2 {
-	newX := wrapInt(v1.x + v2.x, MapW)
-	newY := wrapInt(v1.y + v2.y, MapH)
-	return Vec2{
-		newX,
-		newY,
-	}
-}
-
-func (v1 Vec2) addNoWrap(v2 Vec2) Vec2 {
-	return Vec2{
-		x: v1.x + v2.x,
-		y: v1.y + v2.y,
-	}
-}
-
-func (v1 Vec2) translate(angleRad float64, distance float64) Vec2 {
-    
-    dx := distance * math.Cos(angleRad)
-    dy := distance * math.Sin(angleRad)
-    
-    newX := v1.x + int(math.Round(dx))
-    newY := v1.y + int(math.Round(dy))
-    
-    return Vec2{x: newX, y: newY}
-}
-
-func (v1 VecRGB) add(v2 VecRGB) VecRGB {
-
-	v3 := v1
-	v3.r = v1.r + v2.r 
-	v3.b = v1.b + v2.b
-	v3.g = v1.g + v2.g
-
-	if v3.r > 255 { v3.r = 255 }
-	if v3.g > 255 { v3.g = 255 }
-	if v3.b > 255 { v3.b = 255 }
-
-	if v3.r < 0   { v3.r = 0   }
-	if v3.g < 0   { v3.g = 0   }
-	if v3.b < 0   { v3.b = 0   }
-
-	return v3
-}
-
-
+// Fast boolean to integer
 func fB2i(b bool) int {
     return int(*(*byte)(unsafe.Pointer(&b)))
 }
 
-func dist(v1, v2 Vec2) float64 {
-	return math.Sqrt(
-		math.Pow(float64(v1.x - v2.x), 2) +
-		math.Pow(float64(v1.y - v2.y), 2),
-		)
-}

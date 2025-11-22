@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 	"time"
-	////"math/rand"
+	//"unsafe"
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -30,6 +30,8 @@ var localPlayerPtr *Snake
 var peerPlayerPtr  *Snake
 
 var _simSamples int64 = 0
+
+var _foo float32 = 1
 
 
 func main() {
@@ -97,6 +99,7 @@ func main() {
 		SIM_FRAME = START_FRAME
 	}
 
+	light(Vec2{14, 26}, 9, 100, Vec3[float32]{})
 /* ············································································· Main Loop       */
 	// qwfp
 	for {
@@ -194,7 +197,14 @@ func main() {
 			_simSamples = 0
 		}
 
+		//errorBox(fmt.Sprintf("tc.col:%d", unsafe.Sizeof(tcell.ColorBlack)), 0, 0)
+		//errorBox(fmt.Sprintf("vecRGB:%d", unsafe.Sizeof(VecRGB{})), 0, 1)
+		//errorBox(fmt.Sprintf("board :%d", unsafe.Sizeof(board)), 0, 2)
+		//errorBox(fmt.Sprintf("vfxLay:%d", unsafe.Sizeof(vfxLayer)), 0, 3)
+		//errorBox(fmt.Sprintf("ligLay:%d", unsafe.Sizeof(lightLayer)), 0, 4)
+		errorBox(fmt.Sprintf("scale :%f", _foo), 0, 5)
 		render(scr, MapX, MapY)
+
 		SIM_FRAME++
 	}
 
@@ -264,10 +274,12 @@ func readLocalInputs(inputCh chan signal) {
 			// Keymap
 			switch key.Rune() {
 			case 'x':
-				FOO--
+				_foo -= 0.2
+				light(Vec2{14, 26}, 9, 100, Vec3[float32]{})
 				inputCh <-iLeft
 			case 'd':
-				FOO++
+				_foo += 0.2
+				light(Vec2{14, 26}, 9, 100, Vec3[float32]{})
 				inputCh <-iRight
 			case ' ':
 				inputCh <-iShot
