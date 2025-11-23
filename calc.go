@@ -63,6 +63,13 @@ type Vec3[T int | int8 | int16 | int32 | float32 | float64] struct {
 	z T
 }
 
+func (v1 *Vec3[float32]) scale(v2 Vec3[float32]) Vec3[float32] {
+	return Vec3[float32]{
+		v1.x * v2.x,
+		v1.y * v2.y,
+		v1.z * v2.z,
+	}
+}
 
 
 

@@ -155,8 +155,9 @@ func (s *Snake) shoot() {
 
 func (s *Snake) control() {
 
+	c := Vec3[float32]{.7, .7, 1}
+
 	input := s.popInput()
-	//callsBox(fmt.Sprintf("popInput()->%c\n", input))
 
 	switch input {
 	case iRight:
@@ -168,7 +169,8 @@ func (s *Snake) control() {
 	case iShot:
 		s.shotCD = 60
 		s.shooting = true
-
+		if s.stateID == P2Head { c = Vec3[float32]{1, .6, .5}}
+		go flash(s.pos, 50, 300, c)
 	}
 }
 

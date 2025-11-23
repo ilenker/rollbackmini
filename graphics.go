@@ -19,6 +19,7 @@ var textCol = tcell.ColorSlateGray
 var	vfxLayer   = [MapH+1][MapW+1]tcell.Color{}
 var	lightLayer = [MapH+1][MapW+1]Vec3[float32]{}
 
+const FOFactor = 0.5
 
 const (
 	EmptyC colorID = iota
@@ -103,6 +104,14 @@ func render(s tcell.Screen, xOffset, yOffset int) {
 			//lower = scaleColor(lower, Vec3[float32]{_foo, _foo, _foo})
 			upper = scaleColor(upper, lightLayer[lyUpper][x])
 			lower = scaleColor(lower, lightLayer[lyLower][x])
+
+			lightLayer[lyUpper][x].x = clamp(lightLayer[lyUpper][x].x * 0.98, 0.8, 10)
+			lightLayer[lyUpper][x].y = clamp(lightLayer[lyUpper][x].y * 0.98, 0.8, 10) 
+			lightLayer[lyUpper][x].z = clamp(lightLayer[lyUpper][x].z * 0.98, 0.8, 10) 
+
+			lightLayer[lyLower][x].x = clamp(lightLayer[lyLower][x].x * 0.98, 0.8, 10) 
+			lightLayer[lyLower][x].y = clamp(lightLayer[lyLower][x].y * 0.98, 0.8, 10) 
+			lightLayer[lyLower][x].z = clamp(lightLayer[lyLower][x].z * 0.98, 0.8, 10) 
 
 			if board[lyUpper][x].state == P1Head ||
 			   board[lyLower][x].state == P1Head {
@@ -198,7 +207,7 @@ func beamEffect(start Vec2, dist int, dir Vec2, colorSeq []colorID) {
 	}
 
 	// Frame 1
-	animate(colorSeq[0], start, dist, 0, 20)
+	animate(colorSeq[0], start, dist, 0, 19)
 	time.Sleep(SIM_TIME)
 	time.Sleep(SIM_TIME)
 
@@ -210,8 +219,8 @@ func beamEffect(start Vec2, dist int, dir Vec2, colorSeq []colorID) {
 	animate(colorSeq[3], start, dist, 2, 20)
 
 	animate(EmptyC, start, dist, 2, 10)
-	animate(EmptyC, start, dist, 2, 15)
-	animate(EmptyC, start, dist, 2, 20)
+	animate(EmptyC, start, dist, 3, 15)
+	animate(EmptyC, start, dist, 4, 19)
 }
 
 
@@ -369,6 +378,7 @@ func hitEffect2nd(start Vec2, baseturns float64, colorSeq []colorID) {
 	animate(EmptyC, start,  3, 10)
 	animate(EmptyC, start,  3, 15)
 	animate(EmptyC, start,  3, 20)
+	go flash(start, 20 + rand.Intn(20), 15, Vec3[float32]{1.0, 0.8, 0.8})
 
 }
 
@@ -449,9 +459,14 @@ func restoreCOLORTERM() {
 // position, radius, luminance, color
 func light(p Vec2, r int, l float32, c Vec3[float32]) {
 
-	l *= 2
+	l /= 5
+
+	//if l < 1 {
+	//	l = 1
+	//}
 
 	minL := float32(1.0)
+
 	dMax := int(dist(p, Vec2{p.x+r+1, p.y}))
 
 	errorBox(fmt.Sprintf("dMaxL: %d", dMax), 0, 1)
@@ -460,18 +475,52 @@ func light(p Vec2, r int, l float32, c Vec3[float32]) {
 		x <= p.x + r;
 		x++ {
 
+		if x > MapW || x < 0 { continue }
+
 		for y := p.y - r;
 			y <= p.y + r;
 			y++ {
 
+			if y > MapH || y < 0 { continue }
+
 
 			d := float32(dist(p, Vec2{x, y}))
 
-			dNormal := iLerp32(0, dMax, d*(d/_foo))
+			//dNormal := iLerp32(0, dMax, d*d*FOFactor)
+			dNormal := iLerp32(0, dMax, d*d*FOFactor)
 			if dNormal > 1 { continue }
+			
+			rL := lerp32(l, minL, dNormal) * c.x
+			gL := lerp32(l, minL, dNormal) * c.y
+			bL := lerp32(l, minL, dNormal) * c.z
 
-			rL := lerp32(l, minL, dNormal)
-			lightLayer[y][x] = Vec3[float32]{rL, rL, rL}
+			v := lightLayer[y][x]
+
+			kv := Vec3[float32]{v.x * rL, v.y * gL, v.z * bL}
+
+			if kv.x < 1 { kv.x = 1}
+			if kv.y < 1 { kv.y = 1}
+			if kv.z < 1 { kv.z = 1}
+			lightLayer[y][x] = kv
 		}
 	}
+}
+
+
+func flash(p Vec2, r int, lum float32, c Vec3[float32]) {
+	l := lum
+
+	mu.Lock()
+
+	for {
+		condLighting.Wait()
+		light(p, r, l, c)
+		l -= l/4
+		if l <= 1 {
+			mu.Unlock()
+			return
+		} 
+	}
+
+
 }

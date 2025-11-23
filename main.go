@@ -4,34 +4,38 @@ import (
 	"fmt"
 	"os"
 	"time"
+	"sync"
 	//"unsafe"
 	"github.com/gdamore/tcell/v2"
 )
 
 // Globals
-var ROLLBACK bool = false
-var BREAK    bool = false
-var SYNC     bool = false
+var (
+	ROLLBACK bool
+	BREAK    bool
+	SYNC     bool
 
-var localScore int = 0
-var peerScore  int = 0
+	localScore int
+	peerScore  int
 
-var scr tcell.Screen
-var err error
+	scr tcell.Screen
+	err error
 
-var inputFromPeerCh chan PeerPacket
-var replyFromPeerCh chan PeerPacket
-var packetsToPeerCh chan PeerPacket
+	inputFromPeerCh chan PeerPacket
+	replyFromPeerCh chan PeerPacket
+	packetsToPeerCh chan PeerPacket
 
-var player1 Snake
-var player2 Snake
+	player1 Snake
+	player2 Snake
 
-var localPlayerPtr *Snake
-var peerPlayerPtr  *Snake
+	localPlayerPtr *Snake
+	peerPlayerPtr  *Snake
 
-var _simSamples int64 = 0
+	_simSamples int64
 
-var _foo float32 = 1
+	mu sync.Mutex
+	condLighting = sync.NewCond(&mu)
+)
 
 
 func main() {
@@ -40,6 +44,7 @@ func main() {
 	player1 = snakeMake(Vec2{(MapW/2) ,  11 + MapH/2}, R, P1Head)
 	player2 = snakeMake(Vec2{(MapW/2) , -12 + MapH/2}, R, P2Head)
 	loadConfig("config.json")
+
 
 	if online {
 		inputFromPeerCh = make(chan PeerPacket, 128)
@@ -71,6 +76,9 @@ func main() {
 
 	simTick := time.NewTicker(SIM_TIME)
 
+	//light(Vec2{MapW/2-10, MapH/2}, 20, 40, Vec3[float32]{1, 1, 1})
+	//light(Vec2{MapW/2+10, MapH/2}, 20, 40, Vec3[float32]{1, 1, 1})
+
 	
 /* ············································································· Sync Loop       */
 	if online {
@@ -99,7 +107,6 @@ func main() {
 		SIM_FRAME = START_FRAME
 	}
 
-	light(Vec2{14, 26}, 9, 100, Vec3[float32]{})
 /* ············································································· Main Loop       */
 	// qwfp
 	for {
@@ -202,7 +209,7 @@ func main() {
 		//errorBox(fmt.Sprintf("board :%d", unsafe.Sizeof(board)), 0, 2)
 		//errorBox(fmt.Sprintf("vfxLay:%d", unsafe.Sizeof(vfxLayer)), 0, 3)
 		//errorBox(fmt.Sprintf("ligLay:%d", unsafe.Sizeof(lightLayer)), 0, 4)
-		errorBox(fmt.Sprintf("scale :%f", _foo), 0, 5)
+		condLighting.Broadcast()
 		render(scr, MapX, MapY)
 
 		SIM_FRAME++
@@ -274,12 +281,8 @@ func readLocalInputs(inputCh chan signal) {
 			// Keymap
 			switch key.Rune() {
 			case 'x':
-				_foo -= 0.2
-				light(Vec2{14, 26}, 9, 100, Vec3[float32]{})
 				inputCh <-iLeft
 			case 'd':
-				_foo += 0.2
-				light(Vec2{14, 26}, 9, 100, Vec3[float32]{})
 				inputCh <-iRight
 			case ' ':
 				inputCh <-iShot
