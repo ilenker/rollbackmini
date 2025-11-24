@@ -42,10 +42,10 @@ func (v1 Vec2) translate(angleRad float64, distance float64) Vec2 {
     dx := distance * math.Cos(angleRad)
     dy := distance * math.Sin(angleRad)
     
-    newX := v1.x + int(math.Round(dx))
-    newY := v1.y + int(math.Round(dy))
+    newX := float64(v1.x) + dx
+    newY := float64(v1.y) + dy
     
-    return Vec2{x: newX, y: newY}
+    return Vec2{int(math.Round(newX)), int(math.Round(newY))}
 }
 
 func dist(v1, v2 Vec2) float64 {

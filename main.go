@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 	"sync"
+	"math"
 	//"unsafe"
 	"github.com/gdamore/tcell/v2"
 )
@@ -35,10 +36,13 @@ var (
 
 	mu sync.Mutex
 	condLighting = sync.NewCond(&mu)
+
+	_graphZoom float64 = 1
 )
 
 
 func main() {
+	lightPoints = make([]Vec2, 10)
 							/*#### INIT ####*/
 	FrameDiffBuffer = makeAverageIntBuffer(20)
 	player1 = snakeMake(Vec2{(MapW/2) ,  11 + MapH/2}, R, P1Head)
@@ -59,7 +63,6 @@ func main() {
 	defer restoreCOLORTERM()
 	scr, err = tcell.NewScreen()	;F(err, "")
 	err = scr.Init()				;F(err, "")
-	//scr.SetStyle(ColEmpty)
 
 	boardInit()
 	textBoxesInit()
@@ -76,8 +79,8 @@ func main() {
 
 	simTick := time.NewTicker(SIM_TIME)
 
-	//light(Vec2{MapW/2-10, MapH/2}, 20, 40, Vec3[float32]{1, 1, 1})
-	//light(Vec2{MapW/2+10, MapH/2}, 20, 40, Vec3[float32]{1, 1, 1})
+	mainLightTicker := time.NewTicker(time.Second * 3)
+
 
 	
 /* ············································································· Sync Loop       */
@@ -107,11 +110,22 @@ func main() {
 		SIM_FRAME = START_FRAME
 	}
 
+
 /* ············································································· Main Loop       */
 	// qwfp
 	for {
+
+		select {
+		case <-mainLightTicker.C:
+			go flash(mainLightArgs.unpack())
+		default:
+		}
+
+		condLighting.Broadcast()
+
 		simStart := time.Now()
 		<-simTick.C
+
 
 		if !online { goto SkipRollback }
 /* ············································································· Network Inbound */
@@ -195,13 +209,15 @@ func main() {
 
 		frameBox(fmt.Sprintf(" [%05d] ", SIM_FRAME), 0, 0)
 
-		_simSamples += (time.Duration(SIM_TIME) - time.Since(simStart)).Microseconds() / 250
+		_simSamples += int64(float64((time.Duration(SIM_TIME) - time.Since(simStart)).Microseconds()) * float64(_graphZoom/1000))
+		errorBox(fmt.Sprintf("zoom: %f", _graphZoom), 0, 0)
 
-		if SIM_FRAME % 5 == 0 {
+		if SIM_FRAME % 9 == 0 {
 			frameDiffGraph(
-				int(_simSamples / 5) + 6,
+				int(_simSamples / 9) + 10 - int(_graphZoom * 2),
 				)
 			_simSamples = 0
+
 		}
 
 		//errorBox(fmt.Sprintf("tc.col:%d", unsafe.Sizeof(tcell.ColorBlack)), 0, 0)
@@ -209,7 +225,6 @@ func main() {
 		//errorBox(fmt.Sprintf("board :%d", unsafe.Sizeof(board)), 0, 2)
 		//errorBox(fmt.Sprintf("vfxLay:%d", unsafe.Sizeof(vfxLayer)), 0, 3)
 		//errorBox(fmt.Sprintf("ligLay:%d", unsafe.Sizeof(lightLayer)), 0, 4)
-		condLighting.Broadcast()
 		render(scr, MapX, MapY)
 
 		SIM_FRAME++
@@ -280,6 +295,14 @@ func readLocalInputs(inputCh chan signal) {
 
 			// Keymap
 			switch key.Rune() {
+			case 'p':
+				for range 6 { go hitEffectCrit(player1.pos, 1.5, hitCols[player2.stateID]) }
+
+			case 'b':
+				for range 4 { go hitEffect(player1.pos, 1.5, hitCols[player2.stateID]) }
+
+			case 'r':
+				
 			case 'x':
 				inputCh <-iLeft
 			case 'd':
@@ -287,6 +310,11 @@ func readLocalInputs(inputCh chan signal) {
 			case ' ':
 				inputCh <-iShot
 
+			case '1':
+				_graphZoom--
+
+			case '2':
+				_graphZoom++
 
 			case '!':
 				variablePage = 1
@@ -356,4 +384,51 @@ func getPeerPlayerPtr() *Snake {
 		return &player1
 	}
 	return &player2
+}
+
+func raycast(p1 Vec2, dir float64) {
+
+	p2 := p1.translate(dir, 20)
+
+	f := 0.0
+
+	for {
+		if f > 2 {
+			return
+		}
+		x := math.Round(lerp(p1.x, p2.x, f))
+		y := math.Round(lerp(p1.y, p2.y, f))
+
+		if x > MapW || x < 0 {
+			return
+		}
+
+		if y > MapH || y < 0 {
+			return
+		}
+
+		//vfxLayer[int(y)][int(x)] = tcell.ColorTurquoise
+		//dist(Vec2{int(x), int(y)}, p2)
+		f += 0.001
+	}
+}
+
+func angleBetween(a, b Vec2) float64 {
+	ax := float64(a.x)
+	ay := float64(a.y)
+	bx := float64(b.x)
+	by := float64(b.y)
+
+	dot := ax * bx + ay * by
+	mag := math.Hypot(ax, ay) * math.Hypot(bx, by)
+
+	if mag == 0 {
+		return 0
+	}
+	return math.Acos(dot / mag) // radians
+}
+
+func angleTo(a, b Vec2) float64 {
+	d := Vec2{b.x - a.x, b.y - a.y}
+	return math.Atan2(float64(d.y), float64(d.x)) // radians, from -π to +π
 }

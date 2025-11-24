@@ -255,7 +255,7 @@ func loadingInfo(x, y int) (int, int) {
 	}
 
 	if SIM_FRAME == 300 {
-		x, y = debugBox(" \nPreset to:\n - Ultra low + RTX Off", x, y)
+		x, y = debugBox(" \nPreset to:\n - Ultra High + RTX ON", x, y)
 	}
 
 	if SIM_FRAME == 600 - 180 {
@@ -303,30 +303,15 @@ func newBarGraph(x, y int) func(int) {
 
 	drawPixelBox(scr, x, y, width, height, tcell.ColorDarkSlateGrey)
 
-	scr.SetContent(x - 2,
-		y + int(float64(height) * float64(1)),
-		'-', nil, tcell.StyleDefault)
-	scr.SetContent(x - 1,
-		y + int(float64(height) * float64(1)),
-		'8', nil, tcell.StyleDefault)
 		//'0', nil, tcell.StyleDefault)
 
 	//scr.SetContent(x - 2,
 	//	y + int(float64(height) * float64(0.5)),
 	//	'0', nil, tcell.StyleDefault)
 	//	//'1', nil, tcell.StyleDefault)
-	scr.SetContent(x - 1,
-		y + int(float64(height) * float64(0.5)),
-		'0', nil, tcell.StyleDefault)
 		//'0', nil, tcell.StyleDefault)
 
-	scr.SetContent(x - 2,
-		y + int(float64(height) * float64(0)),
-		'+', nil, tcell.StyleDefault)
 		//'2', nil, tcell.StyleDefault)
-	scr.SetContent(x - 1,
-		y + int(float64(height) * float64(0)),
-		'8', nil, tcell.StyleDefault)
 		//'0', nil, tcell.StyleDefault)
 
 	counter := x - 1

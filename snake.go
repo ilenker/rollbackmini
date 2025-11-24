@@ -119,6 +119,12 @@ func (s *Snake) shoot() {
 
 			}
 			
+		} else {
+			if !online {
+				dir := 1.5
+				if other.stateID == P1Head { dir = 0.5 }
+				for range 5 { go hitEffectCrit(other.pos, dir, hitCols[other.stateID]) }
+			}
 		}
 
 
@@ -170,7 +176,7 @@ func (s *Snake) control() {
 		s.shotCD = 60
 		s.shooting = true
 		if s.stateID == P2Head { c = Vec3[float32]{1, .6, .5}}
-		go flash(s.pos, 50, 300, c)
+		go flash(s.pos, 100, 200, 4, c, false)
 	}
 }
 

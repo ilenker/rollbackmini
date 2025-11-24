@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/rand"
 	"github.com/gdamore/tcell/v2"
+	//"github.com/kelindar/simd"
 )
 
 type colorID = uint8
@@ -18,6 +19,8 @@ var textCol = tcell.ColorSlateGray
 
 var	vfxLayer   = [MapH+1][MapW+1]tcell.Color{}
 var	lightLayer = [MapH+1][MapW+1]Vec3[float32]{}
+var lightPoints []Vec2
+var lpID int
 
 const FOFactor = 0.5
 
@@ -79,6 +82,7 @@ var hitCols = map[cellState][]colorID{
 
 
 func render(s tcell.Screen, xOffset, yOffset int) {
+
 	// For each terminal row (board y-coordinates map 2:1 onto terminal y-coordinates)
 	for y := range (MapH / 2) {
 		lyUpper := y * 2           // Calculate corresponding Logical Row, given Terminal Row
@@ -105,13 +109,52 @@ func render(s tcell.Screen, xOffset, yOffset int) {
 			upper = scaleColor(upper, lightLayer[lyUpper][x])
 			lower = scaleColor(lower, lightLayer[lyLower][x])
 
-			lightLayer[lyUpper][x].x = clamp(lightLayer[lyUpper][x].x * 0.98, 0.8, 10)
-			lightLayer[lyUpper][x].y = clamp(lightLayer[lyUpper][x].y * 0.98, 0.8, 10) 
-			lightLayer[lyUpper][x].z = clamp(lightLayer[lyUpper][x].z * 0.98, 0.8, 10) 
+			lightLayer[lyUpper][x].x = clamp(lightLayer[lyUpper][x].x * 0.90, 0.02, 10)
+			lightLayer[lyUpper][x].y = clamp(lightLayer[lyUpper][x].y * 0.90, 0.02, 10) 
+			lightLayer[lyUpper][x].z = clamp(lightLayer[lyUpper][x].z * 0.90, 0.10, 10) 
 
-			lightLayer[lyLower][x].x = clamp(lightLayer[lyLower][x].x * 0.98, 0.8, 10) 
-			lightLayer[lyLower][x].y = clamp(lightLayer[lyLower][x].y * 0.98, 0.8, 10) 
-			lightLayer[lyLower][x].z = clamp(lightLayer[lyLower][x].z * 0.98, 0.8, 10) 
+			lightLayer[lyLower][x].x = clamp(lightLayer[lyLower][x].x * 0.90, 0.02, 10) 
+			lightLayer[lyLower][x].y = clamp(lightLayer[lyLower][x].y * 0.90, 0.02, 10) 
+			lightLayer[lyLower][x].z = clamp(lightLayer[lyLower][x].z * 0.90, 0.10, 10) 
+
+
+			// Raycast from all light points to orange player
+			if shadows {
+				for _, lPoint := range lightPoints {
+
+					if lPoint.x == 0 && lPoint.y == 0 {
+						continue
+					}
+
+					p1 := lPoint
+
+					dir := angleTo(p1, player2.pos)
+
+					p2 := player2.pos.translate(dir, 50)
+					p1 = player2.pos.translate(dir, 1)
+
+					f := 0.0
+					for {
+						if f > 1 {
+							break
+						}
+						x := math.Round(lerp(p1.x, p2.x, f))
+						y := math.Round(lerp(p1.y, p2.y, f))
+
+						if x > MapW || x < 0 {
+							break
+						}
+
+						if y > MapH || y < 0 {
+							break
+						}
+						lightLayer[int(y)][int(x)] = Vec3[float32]{0.4, 0.4, 0.4}
+						f += 0.010
+					}
+				}
+			}
+
+
 
 			if board[lyUpper][x].state == P1Head ||
 			   board[lyLower][x].state == P1Head {
@@ -167,7 +210,7 @@ func stylesInit() {
 	cols = map[colorID]tcell.Color{
 		EmptyC   : tcell.NewRGBColor(1, 1, 1),
 		P1HeadC  : tcell.ColorBlue,
-		P2HeadC  : tcell.ColorOrange,
+		P2HeadC  : tcell.ColorDarkOrange,
 		WallC    : tcell.ColorWhiteSmoke,
 
 		WhiteC  : tcell.ColorWhite,
@@ -312,6 +355,7 @@ func hitEffectCrit(start Vec2, baseturns float64, colorSeq []colorID) {
 			go hitEffect2nd(pos, 2 * rand.Float64(), colorSeq)
 			go hitEffect2nd(pos, 2 * rand.Float64(), colorSeq)
 			go hitEffect2nd(pos, 2 * rand.Float64(), colorSeq)
+			go flash(pos, 100 + rand.Intn(100), 10, 8, Vec3[float32]{1.0, 0.8, 0.8}, false)
 		}
 		turns = baseturns
 
@@ -334,6 +378,7 @@ func hitEffectCrit(start Vec2, baseturns float64, colorSeq []colorID) {
 	animate(EmptyC, start,  1, 10, false)
 	animate(EmptyC, start,  2, 15, false)
 	animate(EmptyC, start,  2, 20, true)
+
 
 }
 
@@ -378,7 +423,6 @@ func hitEffect2nd(start Vec2, baseturns float64, colorSeq []colorID) {
 	animate(EmptyC, start,  3, 10)
 	animate(EmptyC, start,  3, 15)
 	animate(EmptyC, start,  3, 20)
-	go flash(start, 20 + rand.Intn(20), 15, Vec3[float32]{1.0, 0.8, 0.8})
 
 }
 
@@ -469,7 +513,7 @@ func light(p Vec2, r int, l float32, c Vec3[float32]) {
 
 	dMax := int(dist(p, Vec2{p.x+r+1, p.y}))
 
-	errorBox(fmt.Sprintf("dMaxL: %d", dMax), 0, 1)
+	//errorBox(fmt.Sprintf("dMaxL: %d", dMax), 0, 1)
 
 	for x := p.x - r;
 		x <= p.x + r;
@@ -486,7 +530,6 @@ func light(p Vec2, r int, l float32, c Vec3[float32]) {
 
 			d := float32(dist(p, Vec2{x, y}))
 
-			//dNormal := iLerp32(0, dMax, d*d*FOFactor)
 			dNormal := iLerp32(0, dMax, d*d*FOFactor)
 			if dNormal > 1 { continue }
 			
@@ -507,15 +550,29 @@ func light(p Vec2, r int, l float32, c Vec3[float32]) {
 }
 
 
-func flash(p Vec2, r int, lum float32, c Vec3[float32]) {
-	l := lum
+func flash(p Vec2, r int, lum float32, linger int, c Vec3[float32], castShadow bool) {
 
+	lingerFactor := float32(linger)
+	l := lum
 	mu.Lock()
+
+	if castShadow {
+		id := lpID
+		lpID++
+		if lpID > 9 {
+			lpID = 0
+		}
+		lightPoints[id] = p
+		defer func(){
+			lightPoints[id] = Vec2{0, 0}
+		} ()
+	}
+
 
 	for {
 		condLighting.Wait()
 		light(p, r, l, c)
-		l -= l/4
+		l -= l/lingerFactor
 		if l <= 1 {
 			mu.Unlock()
 			return

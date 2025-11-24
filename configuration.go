@@ -12,6 +12,7 @@ type Config struct {
     SimulationSpeedMS	int  `json:"simulationSpeedMS"`
 	InputDelayFrames	int  `json:"inputDelayFrames"`
     Online				bool `json:"online"`
+    Shadows				bool `json:"shadows"`
 }
 
 func loadConfig(filename string) {
@@ -24,6 +25,7 @@ func loadConfig(filename string) {
 		config.MoveSpeed = 8
 		config.SimulationSpeedMS = 16
 		config.Online = false
+		config.Shadows = true
 	}
     
     err = json.Unmarshal(data, &config)
@@ -33,6 +35,7 @@ func loadConfig(filename string) {
 		config.MoveSpeed = 8
 		config.SimulationSpeedMS = 16
 		config.Online = false
+		config.Shadows = true
 	}
 
 	LOCAL = config.LocalPlayer
@@ -58,4 +61,5 @@ func loadConfig(filename string) {
 
 	PACKET_BUFFER_LEN = config.InputDelayFrames
 	online = config.Online
+	shadows = config.Shadows
 }
