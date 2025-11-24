@@ -4,5 +4,5 @@
     "simulationSpeedMS":    16,
     "inputDelayFrames":     2,
     "online":               false,
-    "shadows":              false
+    "shadows":              true
 }

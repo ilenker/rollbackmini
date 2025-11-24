@@ -130,6 +130,10 @@ func lerp32(x, y, f float32) float32 {
 	return x * (1.0-f) + y * f
 }
 
+func lerp64(x, y, f float64) float64 {
+	return x * (1.0-f) + y * f
+}
+
 func iLerp(x, y int, num float64) float64 {
     if x == y { return 0 }
     return (num - float64(x)) / float64(y - x)
@@ -138,6 +142,11 @@ func iLerp(x, y int, num float64) float64 {
 func iLerp32(x, y int, num float32) float32 {
     if x == y { return 0 }
     return (num - float32(x)) / float32(y - x)
+}
+
+func iLerp64(x, y int, num float64) float64 {
+    if x == y { return 0 }
+    return (num - float64(x)) / float64(y - x)
 }
 
 
@@ -187,6 +196,11 @@ func clamp[T int | int8 | int16 | int32 | float32 | float64](n, min, max T) T {
 	return n
 }
 
+func clampMin[T int | int8 | int16 | int32 | float32 | float64](n, min T) T {
+	if n < min { return min }
+	return n
+}
+
 
 func B2i(b bool) int {
 	if b { return 1 }
@@ -198,3 +212,6 @@ func fB2i(b bool) int {
     return int(*(*byte)(unsafe.Pointer(&b)))
 }
 
+func flatIdx(v Vec2) int {
+	return v.y * MapW + v.x
+}

@@ -17,7 +17,7 @@ type HitConfirm	struct {
 
 type FrameData struct {
 	id uint16
-	board [MapH+1][MapW+1]Cell
+	board [(MapH+1) * (MapW+1)]Cell
 	local Snake
 	peer Snake
 }

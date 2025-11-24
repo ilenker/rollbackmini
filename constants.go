@@ -53,7 +53,8 @@ const SUBCELL_SIZE = 32			// Resolution of logical subcells - enables finer cont
 
 var SIM_TIME time.Duration		// How long each game loop tick takes
 var online  = false
-var shadows = false
+var shadows = true
 var LOCAL int					// Identifier for which player (top / bottom) is the local peer
 var PEER  int					// Identifier for which player (top / bottom) is the remote peer
 var PACKET_BUFFER_LEN = 2		// Artificial delay for very low RTT connections
+

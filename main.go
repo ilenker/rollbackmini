@@ -121,6 +121,7 @@ func main() {
 		default:
 		}
 
+
 		condLighting.Broadcast()
 
 		simStart := time.Now()
