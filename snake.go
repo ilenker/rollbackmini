@@ -161,7 +161,7 @@ func (s *Snake) shoot() {
 
 func (s *Snake) control() {
 
-	c := Vec3[float64]{.7, .7, 1}
+	c := Vec3[float64]{.9, .9, 1}
 
 	input := s.popInput()
 
@@ -175,8 +175,8 @@ func (s *Snake) control() {
 	case iShot:
 		s.shotCD = 60
 		s.shooting = true
-		if s.stateID == P2Head { c = Vec3[float64]{1, .6, .5}}
-		go flash(s.pos, size * 2, lum * 2, linger, c, false)
+		if s.stateID == P2Head { c = Vec3[float64]{1, .9, .9}}
+		go flash(s.pos, size, lum, linger, c, false)
 	}
 }
 

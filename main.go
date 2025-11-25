@@ -38,7 +38,12 @@ var (
 	condLighting = sync.NewCond(&mu)
 
 	_graphZoom float64 = 1
+	s []*Slider
 )
+
+func _main() {
+	test()
+}
 
 
 func main() {
@@ -63,6 +68,19 @@ func main() {
 	defer restoreCOLORTERM()
 	scr, err = tcell.NewScreen()	;F(err, "")
 	err = scr.Init()				;F(err, "")
+	scr.EnableMouse()
+
+	s = make([]*Slider, 4)
+	slidersInit(MapW + 28, 2)
+
+	s[0].Value = γ 
+	s[0].Percent = iLerp(int(s[0].Min), int(s[0].Max), γ)
+
+	s[1].Value = ω 
+	s[1].Percent = iLerp(int(s[1].Min), int(s[1].Max), ω)
+
+	s[2].Value = β 
+	s[2].Percent = iLerp(int(s[2].Min), int(s[2].Max), β)
 
 	boardInit()
 	textBoxesInit()
@@ -211,7 +229,7 @@ func main() {
 		frameBox(fmt.Sprintf(" [%05d] ", SIM_FRAME), 0, 0)
 
 		_simSamples += int64(float64((time.Duration(SIM_TIME) - time.Since(simStart)).Microseconds()) * float64(_graphZoom/1000))
-		errorBox(fmt.Sprintf("zoom: %f", _graphZoom), 0, 0)
+		//errorBox(fmt.Sprintf("zoom: %f", _graphZoom), 0, 0)
 
 		if SIM_FRAME % 9 == 0 {
 			frameDiffGraph(
@@ -221,11 +239,16 @@ func main() {
 
 		}
 
-		//errorBox(fmt.Sprintf("tc.col:%d", unsafe.Sizeof(tcell.ColorBlack)), 0, 0)
-		//errorBox(fmt.Sprintf("vecRGB:%d", unsafe.Sizeof(VecRGB{})), 0, 1)
-		//errorBox(fmt.Sprintf("board :%d", unsafe.Sizeof(board)), 0, 2)
-		//errorBox(fmt.Sprintf("vfxLay:%d", unsafe.Sizeof(vfxLayer)), 0, 3)
-		//errorBox(fmt.Sprintf("ligLay:%d", unsafe.Sizeof(lightLayer)), 0, 4)
+		//eB(fmt.Sprintf("tc.col:%d", unsafe.Sizeof(tcell.ColorBlack)), 0, 0)
+		//(fmt.Sprintf("vecRGB:%d", unsafe.Sizeof(VecRGB{})), 0, 1)
+		//(fmt.Sprintf("board :%d", unsafe.Sizeof(board)), 0, 2)
+		//(fmt.Sprintf("vfxLay:%d", unsafe.Sizeof(vfxLayer)), 0, 3)
+		//(fmt.Sprintf("ligLay:%d", unsafe.Sizeof(lightLayer)), 0, 4)
+		sliders()
+
+		γ = s[0].Value
+		ω = s[1].Value
+		
 		render(scr, MapX, MapY)
 
 		SIM_FRAME++
@@ -278,6 +301,13 @@ func readLocalInputs(inputCh chan signal) {
 		//	continue
 		//}
 		ev := scr.PollEvent()
+
+		if mev, ok := ev.(*tcell.EventMouse); ok {
+			for _, slider := range s {
+				slider.HandleEvent(mev)
+			}
+		}
+
 		if key, ok := ev.(*tcell.EventKey); ok {
 
 			if key.Key() == tcell.KeyESC {
@@ -408,8 +438,6 @@ func raycast(p1 Vec2, dir float64) {
 			return
 		}
 
-		//vfxLayer[int(y)][int(x)] = tcell.ColorTurquoise
-		//dist(Vec2{int(x), int(y)}, p2)
 		f += 0.001
 	}
 }

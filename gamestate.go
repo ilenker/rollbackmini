@@ -54,23 +54,22 @@ func simulate() {
 
 func boardInit() {
 	mapSize := (MapH + 1) * (MapW + 1)
-	lightRs         = make([]float64, mapSize)
+	lightVal.rs     = make([]float64, mapSize)
+	lightVal.gs     = make([]float64, mapSize)
+	lightVal.bs     = make([]float64, mapSize)
 	renderBuffer.rs = make([]float64, mapSize)
 	renderBuffer.gs = make([]float64, mapSize)
 	renderBuffer.bs = make([]float64, mapSize)
-	vfxLayerRs      = make([]float64, mapSize)
-	vfxLayerGs      = make([]float64, mapSize)
-	vfxLayerBs      = make([]float64, mapSize)
+	vfxLayer.rs     = make([]float64, mapSize)
+	vfxLayer.gs     = make([]float64, mapSize)
+	vfxLayer.bs     = make([]float64, mapSize)
 
 	for y := range MapH {
 		for x := range MapW {
-			board[y * MapW + x].state = Empty
-			vfxLayerRs[y * MapW + x] = 40
-			vfxLayerGs[y * MapW + x] = 40
-			vfxLayerBs[y * MapW + x] = 40
-			//lightLayer[y][x] = Vec3[float32]{1, 1, 1}
-			lightRs[y * MapW + x] = float64(1)
-			//dimmingFactor[y * MapW + x] = float64(0.99)
+			i := flatIdx(x, y)
+			board[i].state = Empty
+			copyRGB(&vfxLayer, i, β, β, β)
+			copyRGB(&lightVal, i, 1.0, 1.0, 1.0)
 		}
 	}
 	drawPixelBox(scr, 2, 2, MapW - 1, MapH/2 - 1, tcell.ColorSteelBlue)
@@ -81,11 +80,8 @@ func cellSet(vec Vec2, newState cellState) {
 	switch board[vec.y * MapW + vec.x].state {
 	default: 
 		board[vec.y * MapW + vec.x].state = newState
-
 		r, g, b := cols[newState].RGB()
-		vfxLayerRs[flatIdx(vec)] = float64(r)
-		vfxLayerGs[flatIdx(vec)] = float64(g)
-		vfxLayerBs[flatIdx(vec)] = float64(b)
+		copyRGB(&vfxLayer, flatIdx(vec), float64(r), float64(g), float64(b))
 	}
 
 }

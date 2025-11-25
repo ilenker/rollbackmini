@@ -11,18 +11,21 @@ type lightFlashArgs struct {
 
 var mainLightArgs = lightFlashArgs{
 	Location  : Vec2{MapW/2, MapH/2},
-	Size      : 500,
+	Size      : 90,
 	Luminosity: 100,
-	Linger    : 4,
-	Tint      : Vec3[float64]{1, .8, .8},
+	Linger    : 0.05,
+	Tint      : Vec3[float64]{1, 0.3, 0.2},
 	CastShadow: true,
 }
 
-const gamma = 2.0
-const size = 100
-const lum = 10.0
-const linger = 2.0
-const FOFactor = 1
+var ω = 255.0 // Whitepoint
+var β = 100.0 // Blackpoint
+var γ = .5    // Gamma
+
+const size     = 50
+const lum      = 50.0
+const linger   = 0.09
+const FOFactor = 0.1
 
 func (l *lightFlashArgs) unpack() (Vec2, int, float64, float64, Vec3[float64], bool){
 	return l.Location, l.Size, l.Luminosity, l.Linger, l.Tint, l.CastShadow

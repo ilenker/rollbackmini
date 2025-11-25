@@ -63,6 +63,37 @@ type Vec3[T int | int8 | int16 | int32 | float32 | float64] struct {
 	z T
 }
 
+type Slice3f64 struct {
+	rs []float64
+	gs []float64
+	bs []float64
+}
+
+func copyRGB(destSlice *Slice3f64, index int, args...any) {
+	if len(args) == 0 {
+		return
+	}
+
+	src, ok := args[0].(Slice3f64)
+	if ok {
+		destSlice.rs[index] = src.rs[index]
+		destSlice.gs[index] = src.gs[index]
+		destSlice.bs[index] = src.bs[index]
+		return
+	}
+
+	if len(args) == 3 {
+		r, ok := args[0].(float64); if !ok { return }
+		g, ok := args[1].(float64); if !ok { return }
+		b, ok := args[2].(float64); if !ok { return }
+
+		destSlice.rs[index] = r
+		destSlice.gs[index] = g
+		destSlice.bs[index] = b
+	}
+
+}
+
 func (v1 *Vec3[float32]) scale(v2 Vec3[float32]) Vec3[float32] {
 	return Vec3[float32]{
 		v1.x * v2.x,
@@ -212,6 +243,23 @@ func fB2i(b bool) int {
     return int(*(*byte)(unsafe.Pointer(&b)))
 }
 
-func flatIdx(v Vec2) int {
-	return v.y * MapW + v.x
+func flatIdx(args...any) int {
+	v, ok := args[0].(Vec2)
+	if ok {
+		return v.y * MapW + v.x
+	}
+
+	x, ok := args[0].(int)
+	if ok {
+		y, ok := args[1].(int)
+		if ok {
+			return y * MapW + x
+		}
+	}
+
+	return -1
+}
+
+func flatIdxInt(x, y int) int {
+	return y * MapW + x
 }

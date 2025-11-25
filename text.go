@@ -108,8 +108,8 @@ func displayVariables(args ...Arg) {
 
 func textBoxesInit () {
 	debugBox = newTextBox(scr, MapW + 5 , 2, 20, 16, true)
-	errorBox = newTextBox(scr, MapW + 28, 2, 20, 16, true)
-	callsBox = newTextBox(scr, MapW + 51, 2, 20, 16, true)
+	errorBox = newTextBox(scr, MapW + 28, 2, 30, 16, true)
+	callsBox = newTextBox(scr, MapW + 61, 2, 20, 16, true)
 
 	scoreBox = newTextBox(
 		scr,

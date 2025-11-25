@@ -17,18 +17,11 @@ var stDef  = tcell.StyleDefault
 var stText = tcell.StyleDefault
 var textCol = tcell.ColorSlateGray
 
-var renderBuffer struct{
-	rs []float64
-	gs []float64
-	bs []float64
-} 
-
-var	vfxLayerRs []float64
-var	vfxLayerGs []float64
-var	vfxLayerBs []float64
+var renderBuffer	Slice3f64
+var vfxLayer 		Slice3f64
+var lightVal 		Slice3f64
 //var	lightLayer	= [MapH+1][MapW+1]Vec3[float32]{}
 
-var lightRs []float64
 var dimmingFactor []float64
 
 var lightPoints []Vec2
@@ -93,40 +86,49 @@ var hitCols = map[cellState][]colorID{
 
 func render(s tcell.Screen, xOffset, yOffset int) {
 
-	if 1 == 1 {
-		for _, lPoint := range lightPoints {
+	if shadows {
+		lPoint := Vec2{MapW / 2, MapH / 2}
+		dir := angleTo(lPoint, player2.pos)
+		p2 := player2.pos.translate(dir, 50)
+		p1 := player2.pos.translate(dir, 1)
+		f := 0.0
 
-			if lPoint.x == -1 && lPoint.y == -1 {
-				continue
-			}
+		for {
+			if f > 1 { break }
 
-			p1 := lPoint
+			x := math.Round(lerp(p1.x, p2.x, f))
+			y := math.Round(lerp(p1.y, p2.y, f))
 
-			dir := angleTo(p1, player2.pos)
+			if x > MapW || x < 0 { break }
+			if y > MapH || y < 0 { break }
 
-			p2 := player2.pos.translate(dir, 50)
-			p1 = player2.pos.translate(dir, 1)
+			i := flatIdx(int(x), int(y))
+			copyRGB(&lightVal, i, 0.1, 0.1, 0.1)
+			f += 0.010
+		}
 
-			f := 0.0
-			for {
-				if f > 1 {
-					break
-				}
-				x := math.Round(lerp(p1.x, p2.x, f))
-				y := math.Round(lerp(p1.y, p2.y, f))
+		dir = angleTo(lPoint, player1.pos)
+		p2 = player1.pos.translate(dir, 50)
+		p1 = player1.pos.translate(dir, 1)
+		f = 0.0
 
-				if x > MapW || x < 0 {
-					break
-				}
+		for {
+			if f > 1 { break }
 
-				if y > MapH || y < 0 {
-					break
-				}
-				lightRs[flatIdx(Vec2{int(x), int(y)})] = 0
-				f += 0.010
-			}
+			x := math.Round(lerp(p1.x, p2.x, f))
+			y := math.Round(lerp(p1.y, p2.y, f))
+
+			if x > MapW || x < 0 { break }
+			if y > MapH || y < 0 { break }
+
+			i := flatIdx(int(x), int(y))
+			copyRGB(&lightVal, i, 0.15, 0.15, 0.15)
+			f += 0.010
 		}
 	}
+
+	lightVal.rs[ flatIdx(getLocalPlayerPtr().pos) ] = 2
+
 	calculateLighting()
 	// For each terminal row (board y-coordinates map 2:1 onto terminal y-coordinates)
 	for y := range (MapH / 2) {
@@ -138,15 +140,54 @@ func render(s tcell.Screen, xOffset, yOffset int) {
 			iU := lyUpper * MapW + x
 			iL := lyLower * MapW + x
 
-			newR := int32(float64(255) * math.Pow((renderBuffer.rs[iU] / 255), gamma) )
-			newG := int32(float64(255) * math.Pow((renderBuffer.gs[iU] / 255), gamma) )
-			newB := int32(float64(255) * math.Pow((renderBuffer.bs[iU] / 255), gamma) )
-			upper := tcell.NewRGBColor(clamp(newR, 0, 255), clamp(newG, 0, 255), clamp(newB, 0, 255))
+			//newR := 255.0 * math.Pow((renderBuffer.rs[iU] / 255), γ)
 
-			newR = int32(float64(255) * math.Pow((renderBuffer.rs[iL] / 255), gamma) )
-			newG = int32(float64(255) * math.Pow((renderBuffer.gs[iL] / 255), gamma) )
-			newB = int32(float64(255) * math.Pow((renderBuffer.bs[iL] / 255), gamma) )
-			lower := tcell.NewRGBColor(clamp(newR, 0, 255), clamp(newG, 0, 255), clamp(newB, 0, 255))
+			newR :=
+			math.Pow(
+				math.Max(renderBuffer.rs[iU] - β, 0) / (ω - β),
+				γ) * 255
+
+			newG :=
+			math.Pow(
+				math.Max(renderBuffer.gs[iU] - β, 0) / (ω - β),
+				γ) * 255
+
+			newB :=
+			math.Pow(
+				math.Max(renderBuffer.bs[iU] - β, 0) / (ω - β),
+				γ) * 255
+
+
+			//newG := int32(float64(255) * math.Pow((renderBuffer.gs[iU] / 255), γ) )
+			//newB := int32(float64(255) * math.Pow((renderBuffer.bs[iU] / 255), γ) )
+			upper := tcell.NewRGBColor(
+				int32(newR),
+				int32(newG),
+				int32(newB))
+
+			newR =
+			math.Pow(
+				math.Max(renderBuffer.rs[iL] - β, 0) / (ω - β),
+				γ) * 255
+
+			newG =
+			math.Pow(
+				math.Max(renderBuffer.gs[iL] - β, 0) / (ω - β),
+				γ) * 255
+
+			newB =
+			math.Pow(
+				math.Max(renderBuffer.bs[iL] - β, 0) / (ω - β),
+				γ) * 255
+
+			//newR = int32(float64(255) * math.Pow((renderBuffer.rs[iL] / 255), γ) )
+			//newG = int32(float64(255) * math.Pow((renderBuffer.gs[iL] / 255), γ) )
+			//newB = int32(float64(255) * math.Pow((renderBuffer.bs[iL] / 255), γ) )
+			//lower := tcell.NewRGBColor(clamp(newR, 0, 255), clamp(newG, 0, 255), clamp(newB, 0, 255))
+			lower := tcell.NewRGBColor(
+				int32(newR),
+				int32(newG),
+				int32(newB))
 
 			//upper = scaleColor(upper, Vec3[float32]{
 			//	lightRs[iU],
@@ -160,9 +201,15 @@ func render(s tcell.Screen, xOffset, yOffset int) {
 			//	lightRs[iL] * 0.8,
 			//})
 
+			lightDecay := 0.95
+			lightVal.rs[iU] = clampMin(lightVal.rs[iU] * lightDecay, 0.1)
+			lightVal.gs[iU] = clampMin(lightVal.gs[iU] * lightDecay, 0.1)
+			lightVal.bs[iU] = clampMin(lightVal.bs[iU] * lightDecay, 0.1)
 
-			lightRs[iU] = clampMin(lightRs[iU] * 0.98, 1)
-			lightRs[iL] = clampMin(lightRs[iL] * 0.98, 1)
+			lightVal.rs[iL] = clampMin(lightVal.rs[iL] * lightDecay, 0.1)
+			lightVal.gs[iL] = clampMin(lightVal.gs[iL] * lightDecay, 0.1)
+			lightVal.bs[iL] = clampMin(lightVal.bs[iL] * lightDecay, 0.1)
+
 			//lightLayer[lyUpper][x].x = clamp(lightLayer[lyUpper][x].x * 0.90, 0.02, 10)
 			//lightLayer[lyUpper][x].y = clamp(lightLayer[lyUpper][x].y * 0.90, 0.02, 10) 
 			//lightLayer[lyUpper][x].z = clamp(lightLayer[lyUpper][x].z * 0.90, 0.10, 10) 
@@ -170,9 +217,6 @@ func render(s tcell.Screen, xOffset, yOffset int) {
 			//lightLayer[lyLower][x].x = clamp(lightLayer[lyLower][x].x * 0.90, 0.02, 10) 
 			//lightLayer[lyLower][x].y = clamp(lightLayer[lyLower][x].y * 0.90, 0.02, 10) 
 			//lightLayer[lyLower][x].z = clamp(lightLayer[lyLower][x].z * 0.90, 0.10, 10) 
-
-
-			// Raycast from all light points to orange player
 
 
 			r := '▀'
@@ -187,9 +231,9 @@ func render(s tcell.Screen, xOffset, yOffset int) {
 }
 
 func calculateLighting() {
-	simd.MulFloat64s(renderBuffer.rs, vfxLayerRs, lightRs)
-	simd.MulFloat64s(renderBuffer.gs, vfxLayerGs, lightRs)
-	simd.MulFloat64s(renderBuffer.bs, vfxLayerBs, lightRs)
+	simd.MulFloat64s(renderBuffer.rs, vfxLayer.rs, lightVal.rs)
+	simd.MulFloat64s(renderBuffer.gs, vfxLayer.gs, lightVal.gs)
+	simd.MulFloat64s(renderBuffer.bs, vfxLayer.bs, lightVal.bs)
 }
 
 
@@ -225,7 +269,7 @@ func newRGBOscillator(rgbInit VecRGB) func() tcell.Color {
 func stylesInit() {
 	stText = stText.Foreground(tcell.ColorSlateGray)
 	cols = map[colorID]tcell.Color{
-		EmptyC   : tcell.NewRGBColor(50, 50, 50),
+		EmptyC   : tcell.NewRGBColor(int32(β), int32(β), int32(β)),
 		P1HeadC  : tcell.ColorBlue,
 		P2HeadC  : tcell.ColorDarkOrange,
 		WallC    : tcell.ColorWhiteSmoke,
@@ -245,21 +289,28 @@ func beamEffect(start Vec2, dist int, dir Vec2, colorSeq []colorID) {
 	start = start.add(dir)
 	animLen := dist
 
-	animate := func(col colorID, pos Vec2, d int, delay time.Duration, chance int) {
+	animate := func(
+		col		colorID,
+		pos		Vec2,
+		d		int,
+		delay	time.Duration,
+		chance	int,
+		fade	bool) {
+
 		c := cols[col]
 		for range animLen {
 			time.Sleep((SIM_TIME/2) * delay)
 			if pos.y >= MapH || pos.y < 0 {
 				break
 			}
-			if col != EmptyC && col != WhiteC {
+			if fade {
 				c = addRBGtoColor(VecRGB{-5, -5, -5}, c)
 			}
 			if rand.Intn(20) < chance {
 				r, g, b := c.RGB()
-				vfxLayerRs[pos.y * MapW + pos.x] = float64(r)
-				vfxLayerGs[pos.y * MapW + pos.x] = float64(g)
-				vfxLayerBs[pos.y * MapW + pos.x] = float64(b)
+				vfxLayer.rs[pos.y * MapW + pos.x] = float64(r)
+				vfxLayer.gs[pos.y * MapW + pos.x] = float64(g)
+				vfxLayer.bs[pos.y * MapW + pos.x] = float64(b)
 			}
 			if d > 0 {
 				d--
@@ -270,20 +321,20 @@ func beamEffect(start Vec2, dist int, dir Vec2, colorSeq []colorID) {
 	}
 
 	// Frame 1
-	animate(colorSeq[0], start, dist, 0, 19)
+	animate(colorSeq[0], start, dist, 0, 19, false)
 	time.Sleep(SIM_TIME)
 	time.Sleep(SIM_TIME)
 
-	animate(colorSeq[1], start, dist, 0, 20)
+	animate(colorSeq[1], start, dist, 0, 20, true)
 	time.Sleep(SIM_TIME)
 
-	animate(colorSeq[2], start, dist, 0, 15)
+	animate(colorSeq[2], start, dist, 0, 15, true)
 
-	animate(colorSeq[3], start, dist, 2, 20)
+	animate(colorSeq[3], start, dist, 2, 20, true)
 
-	animate(EmptyC, start, dist, 2, 10)
-	animate(EmptyC, start, dist, 3, 15)
-	animate(EmptyC, start, dist, 4, 20)
+	animate(EmptyC, start, dist, 2, 10, false)
+	animate(EmptyC, start, dist, 3, 15, false)
+	animate(EmptyC, start, dist, 4, 20, false)
 }
 
 
@@ -306,9 +357,9 @@ func hitEffect(start Vec2, baseturns float64, colorSeq []colorID) {
 
 			if rand.Intn(20) < chance {
 				r, g, b := cols[col].RGB()
-				vfxLayerRs[pos.y * MapW + pos.x] = float64(r)
-				vfxLayerGs[pos.y * MapW + pos.x] = float64(g)
-				vfxLayerBs[pos.y * MapW + pos.x] = float64(b)
+				vfxLayer.rs[pos.y * MapW + pos.x] = float64(r)
+				vfxLayer.gs[pos.y * MapW + pos.x] = float64(g)
+				vfxLayer.bs[pos.y * MapW + pos.x] = float64(b)
 			}
 
 			turns += curve
@@ -351,7 +402,13 @@ func hitEffectCrit(start Vec2, baseturns float64, colorSeq []colorID) {
 	turns := baseturns
 	curve := -0.05 + rand.Float64() * 0.1
 
-	animate := func(col colorID, pos Vec2, delay time.Duration, chance int, after bool) {
+	animate := func(col colorID,
+		pos		Vec2,
+		delay	time.Duration,
+		chance	int,
+		after	bool,
+		fade	bool) {
+
 		for range animLen {
 			c := cols[col]
 			time.Sleep((SIM_TIME/2) * delay)
@@ -361,15 +418,15 @@ func hitEffectCrit(start Vec2, baseturns float64, colorSeq []colorID) {
 				break
 			}
 
-			if col != EmptyC && col != WhiteC {
+			if fade {
 				c = addRBGtoColor(VecRGB{-7, -7, -7}, c)
 			}
 
 			if rand.Intn(20) < chance {
 				r, g, b := c.RGB()
-				vfxLayerRs[pos.y * MapW + pos.x] = float64(r)
-				vfxLayerGs[pos.y * MapW + pos.x] = float64(g)
-				vfxLayerBs[pos.y * MapW + pos.x] = float64(b)
+				vfxLayer.rs[pos.y * MapW + pos.x] = float64(r)
+				vfxLayer.gs[pos.y * MapW + pos.x] = float64(g)
+				vfxLayer.bs[pos.y * MapW + pos.x] = float64(b)
 			}
 
 			turns += curve
@@ -381,29 +438,29 @@ func hitEffectCrit(start Vec2, baseturns float64, colorSeq []colorID) {
 			go hitEffect2nd(pos, 2 * rand.Float64(), colorSeq)
 			go hitEffect2nd(pos, 2 * rand.Float64(), colorSeq)
 			go hitEffect2nd(pos, 2 * rand.Float64(), colorSeq)
-			go flash(pos, size, lum, linger, Vec3[float64]{1.0, 0.8, 0.8}, false)
 		}
 		turns = baseturns
 
 	}
 
-	animate(colorSeq[0], start, 0, 20, true)
+	animate(colorSeq[0], start, 0, 20, true , true)
 	time.Sleep(SIM_TIME)
 	time.Sleep(SIM_TIME)
 
-	animate(colorSeq[1], start,  0, 20, true)
+	animate(colorSeq[1], start, 0, 20, true , true)
 	time.Sleep(SIM_TIME)
 	time.Sleep(SIM_TIME)
 
-	animate(colorSeq[2], start, 0, 20, false)
+	animate(colorSeq[2], start, 0, 20, false, true)
 	time.Sleep(SIM_TIME)
 
-	animate(colorSeq[2], start, 0, 15, true)
+	animate(colorSeq[2], start, 0, 15, true , true)
+	go flash(start, size/4, lum, linger, Vec3[float64]{1, 1, 1}, false)
 
-	animate(colorSeq[3], start, 1, 20, false)
-	animate(EmptyC, start,  1, 10, false)
-	animate(EmptyC, start,  2, 15, false)
-	animate(EmptyC, start,  2, 20, true)
+	animate(colorSeq[3], start, 1, 20, false, true)
+	animate(EmptyC,      start, 1, 10, false, false)
+	animate(EmptyC,      start, 2, 15, false, false)
+	animate(EmptyC,      start, 2, 20, true , false)
 
 
 }
@@ -416,7 +473,12 @@ func hitEffect2nd(start Vec2, baseturns float64, colorSeq []colorID) {
 	turns := baseturns
 	curve := -0.1 + rand.Float64() * 0.2
 
-	animate := func(col colorID, pos Vec2, delay time.Duration, chance int) {
+	animate := func(col colorID,
+		pos Vec2,
+		delay time.Duration,
+		chance int,
+		fade bool) {
+
 		c := cols[col]
 		for range animLen {
 			time.Sleep((SIM_TIME/2) * delay)
@@ -425,15 +487,15 @@ func hitEffect2nd(start Vec2, baseturns float64, colorSeq []colorID) {
 				break
 			}
 
-			if col != EmptyC && col != WhiteC {
+			if fade {
 				c = addRBGtoColor(VecRGB{-7, -7, -7}, c)
 			}
 
 			if rand.Intn(20) < chance {
 				r, g, b := c.RGB()
-				vfxLayerRs[pos.y * MapW + pos.x] = float64(r)
-				vfxLayerGs[pos.y * MapW + pos.x] = float64(g)
-				vfxLayerBs[pos.y * MapW + pos.x] = float64(b)
+				vfxLayer.rs[pos.y * MapW + pos.x] = float64(r)
+				vfxLayer.gs[pos.y * MapW + pos.x] = float64(g)
+				vfxLayer.bs[pos.y * MapW + pos.x] = float64(b)
 			}
 
 			turns += curve
@@ -443,16 +505,15 @@ func hitEffect2nd(start Vec2, baseturns float64, colorSeq []colorID) {
 	}
 
 	// Frame 1
-	animate(colorSeq[0], start, 0, 20)
+	animate(colorSeq[0], start,  0, 20, true)
 	time.Sleep(SIM_TIME)
 	time.Sleep(SIM_TIME)
 
-	animate(colorSeq[1], start, 0, 15)
-	animate(colorSeq[2], start, 1, 20)
-	animate(EmptyC, start,  3, 10)
-	animate(EmptyC, start,  3, 15)
-	animate(EmptyC, start,  3, 20)
-
+	animate(colorSeq[1], start,  0, 15, true)
+	animate(colorSeq[2], start,  1, 20, true)
+	animate(EmptyC,      start,  3, 10, false)
+	animate(EmptyC,      start,  3, 15, false)
+	animate(EmptyC,      start,  3, 20, false)
 }
 
 
@@ -468,9 +529,9 @@ func rollbackStreak(start Vec2, dist int, dir Vec2, colID colorID) {
 			}
 			if rand.Intn(20) < chance {
 				r, g, b := col.RGB()
-				vfxLayerRs[pos.y * MapW + pos.x] = float64(r)
-				vfxLayerGs[pos.y * MapW + pos.x] = float64(g)
-				vfxLayerBs[pos.y * MapW + pos.x] = float64(b)
+				vfxLayer.rs[pos.y * MapW + pos.x] = float64(r)
+				vfxLayer.gs[pos.y * MapW + pos.x] = float64(g)
+				vfxLayer.bs[pos.y * MapW + pos.x] = float64(b)
 			}
 			if d > 0 {
 				d--
@@ -492,22 +553,20 @@ func rollbackStreak(start Vec2, dist int, dir Vec2, colID colorID) {
 func cooldownBar(origin Vec2, length int, colorID colorID) {
 
 	if length == 0 {
-		vfxLayerRs[origin.y * MapW + origin.x] = float64(0)
-		vfxLayerGs[origin.y * MapW + origin.x] = float64(0)
-		vfxLayerBs[origin.y * MapW + origin.x] = float64(0)
+		copyRGB(&vfxLayer, flatIdx(origin), 0.0, 0.0, 0.0)
 	}
 
 	for i := range length {
 		//vfxLayer[origin.y][origin.x + i + 1] = cols[EmptyC]
-		vfxLayerRs[origin.y * MapW + origin.x + i + 1] = float64(0)
-		vfxLayerGs[origin.y * MapW + origin.x + i + 1] = float64(0)
-		vfxLayerBs[origin.y * MapW + origin.x + i + 1] = float64(0)
+		copyRGB(&vfxLayer, flatIdx(origin.x + i + 1, origin.y), 0.0, 0.0, 0.0)
 
 		//vfxLayer[origin.y][origin.x + i    ] = cols[colorID]
 		r, g, b := cols[colorID].RGB()
-		vfxLayerRs[origin.y * MapW + origin.x + i] = float64(r)
-		vfxLayerGs[origin.y * MapW + origin.x + i] = float64(g)
-		vfxLayerBs[origin.y * MapW + origin.x + i] = float64(b)
+		copyRGB(&vfxLayer,
+			flatIdx(origin.x + i, origin.y),
+			float64(r),
+			float64(g),
+			float64(b))
 	}
 
 }
@@ -542,14 +601,50 @@ func restoreCOLORTERM() {
 	os.Setenv("COLORTERM", COLORTERM_OG)	
 }
 
+
 // position, radius, luminance, color
+func _light(lightR float64, p, p2 Vec2, r int, lum float64, c Vec3[float64]) float64 {
+
+	x := p2.x
+	y := p2.y
+
+	minL := float64(1.0)
+
+	dMax := r + 1
+
+	//errorBox(fmt.Sprintf("dMaxL: %d", dMax), 0, 1)
+
+
+	d := dist(p, Vec2{x, y})
+
+	if d > float64(dMax) {
+		return 1
+	}
+
+	dNormal := iLerp64(0, dMax, d * d * FOFactor)
+
+	if dNormal > 1 { return 1.0 }
+
+	rLum := lerp64(lum, minL, dNormal) * c.x
+
+
+	//kv := Vec3[float32]{v.x * rL, v.y * gL, v.z * bL}
+	kMax := 15.0
+	kLightR := clamp(lightR * rLum, 0, kMax)
+
+	//if kv.y < 1 { kv.y = 1}
+	//if kv.z < 1 { kv.z = 1}
+
+	return kLightR
+}
+
 func light(p Vec2, r int, lum float64, c Vec3[float64]) {
 
 	lum /= 10
 
-	minL := float64(0.0)
+	minL := float64(1.0)
 
-	dMax := int(dist(p, Vec2{p.x+r+1, p.y}))
+	dMax := r + 1
 
 	//errorBox(fmt.Sprintf("dMaxL: %d", dMax), 0, 1)
 
@@ -562,9 +657,9 @@ func light(p Vec2, r int, lum float64, c Vec3[float64]) {
 		for y := p.y - r;
 			y <= p.y + r;
 			y++ {
+			i := flatIdx(x, y)
 
 			if y > MapH || y < 0 { continue }
-
 
 			d := dist(p, Vec2{x, y})
 
@@ -572,51 +667,60 @@ func light(p Vec2, r int, lum float64, c Vec3[float64]) {
 
 			if dNormal > 1 { continue }
 			
-			rLum := lerp64(lum, minL, dNormal)
-			//gL := lerp32(l, minL, dNormal) * c.y
-			//bL := lerp32(l, minL, dNormal) * c.z
+			rLum := lerp64(lum, minL, dNormal) * c.x
+			gLum := lerp64(lum, minL, dNormal) * c.y
+			bLum := lerp64(lum, minL, dNormal) * c.z
 
-			lightR := lightRs[y * MapW + x]
+			lightR := lightVal.rs[i]
+			lightG := lightVal.gs[i]
+			lightB := lightVal.bs[i]
+
 
 			//kv := Vec3[float32]{v.x * rL, v.y * gL, v.z * bL}
-			kLightR := clamp(lightR + rLum, 0, 255)
+			kMax := 5.0
+			rLum = clamp( (rLum + lightR) / 2, 1, kMax)
+			gLum = clamp( (gLum + lightG) / 2, 1, kMax)
+			bLum = clamp( (bLum + lightB) / 2, 1, kMax)
 
 			//if kv.y < 1 { kv.y = 1}
 			//if kv.z < 1 { kv.z = 1}
-			lightRs[y * MapW + x] = kLightR
+
+			if k := vfxLayer.rs[i] * rLum;
+			k > 253 { rLum *= 255/k }
+
+			if k := vfxLayer.gs[i] * gLum;
+			k > 253 { gLum *= 255/k }
+
+			if k := vfxLayer.bs[i] * bLum;
+			k > 253 { bLum *= 255/k }
+
+
+			lightVal.rs[i] = rLum
+			lightVal.gs[i] = gLum
+			lightVal.bs[i] = bLum
 		}
 	}
 }
 
 
-func flash(p Vec2, r int, lum float64, linger float64, c Vec3[float64], castShadow bool) {
+func flash(p Vec2, r int, lum float64, decayRate float64, c Vec3[float64], castShadow bool) {
 
-	lingerFactor := float64(linger)
-	l := lum
 	mu.Lock()
 
 	if castShadow {
-		id := lpID
-		lpID++
-		if lpID > 9 {
-			lpID = 0
-		}
-		lightPoints[id] = p
+		shadows = true
 		defer func(){
-			lightPoints[id] = Vec2{-1, -1}
+			shadows = false
 		} ()
 	}
 
-
 	for {
 		condLighting.Wait()
-		light(p, r, l, c)
-		l -= l*lingerFactor
-		if l <= 1 {
+		light(p, r, lum, c)
+		if lum <= 1 {
 			mu.Unlock()
 			return
-		} 
+		}
+		lum -= lum * decayRate
 	}
-
-
 }
