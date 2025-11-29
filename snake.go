@@ -176,21 +176,21 @@ func (s *Snake) control() {
 		s.shotCD = 60
 		s.shooting = true
 		if s.stateID == P2Head { c = Vec3[float64]{1, .9, .9}}
-		go flash(s.pos, size, lum, linger, c, false)
+		light(s.pos, size, lum, c)
 	}
 }
 
 func (s *Snake) cooldown() {
-	col := colorID(P1Head)
-	pos := Vec2{MapX + MapW/2 - 8, MapH - 2}
+	//col := colorID(P1Head)
+	//pos := Vec2{MapX + MapW/2 - 8, MapH - 2}
 
-	if s.stateID == P2Head {
-		col = colorID(P2Head)
-		pos = Vec2{MapX + MapW/2 - 12, 1}
-	}
+	//if s.stateID == P2Head {
+	//	col = colorID(P2Head)
+	//	pos = Vec2{MapX + MapW/2 - 12, 1}
+	//}
 
-	length := int(iLerp(0, 60, float64(s.shotCD)) * 16)
-	cooldownBar(pos, length, col)
+	//length := int(iLerp(0, 60, float64(s.shotCD)) * 16)
+	//cooldownBar(pos, length, col)
 
 	if s.shotCD > 0 {
 		if s.scpt != 2 {s.scpt = 2}

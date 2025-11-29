@@ -66,6 +66,7 @@ func variableDisplay() {
 			Arg{"SIM_FRAME:", SIM_FRAME},
 			Arg{"Diff Targ:", fmt.Sprintf("%.2f", diffTarget)},
 			Arg{"Adjust   :", int(adjust)},
+			Arg{"AvgFrameT:", fmt.Sprintf("%.2f", float64(avgFrameTime)/1000.0)},
 			)
 	case 4:
 		target := ((avgRTTuSec/1000)/2) / SIM_TIME.Milliseconds()
@@ -302,17 +303,6 @@ func newBarGraph(x, y int) func(int) {
 	height :=  10
 
 	drawPixelBox(scr, x, y, width, height, tcell.ColorDarkSlateGrey)
-
-		//'0', nil, tcell.StyleDefault)
-
-	//scr.SetContent(x - 2,
-	//	y + int(float64(height) * float64(0.5)),
-	//	'0', nil, tcell.StyleDefault)
-	//	//'1', nil, tcell.StyleDefault)
-		//'0', nil, tcell.StyleDefault)
-
-		//'2', nil, tcell.StyleDefault)
-		//'0', nil, tcell.StyleDefault)
 
 	counter := x - 1
 

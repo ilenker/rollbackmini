@@ -23,6 +23,8 @@ const (
 
 	iPing  signal = 63		// ?	ping request
 	iPong  signal = 33		// !	ping reply
+
+	iExit  signal = 69
 )
 
 // Facing directions
@@ -42,19 +44,20 @@ const (
 
 // Map settings
 
-const MapH = 60
-const MapW = 30
+const MapH = 64
+const MapW = 32
 const MapX = 2
 const MapY = 2
 const SUBCELL_SIZE = 32			// Resolution of logical subcells - enables finer control over movespeed
+var MAIN_LIGHT_POS = Vec2{MapW / 2, MapH / 2}
 
 
 // Constants determined by reading config.json at runtime
 
-var SIM_TIME time.Duration		// How long each game loop tick takes
-var online  = false
-var shadows = true
 var LOCAL int					// Identifier for which player (top / bottom) is the local peer
 var PEER  int					// Identifier for which player (top / bottom) is the remote peer
+var SIM_TIME time.Duration		// How long each game loop tick takes
 var PACKET_BUFFER_LEN = 2		// Artificial delay for very low RTT connections
+var online  = false
+var shadows = true
 

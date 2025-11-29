@@ -15,6 +15,7 @@ type Config struct {
     Shadows				bool `json:"shadows"`
 }
 
+
 func loadConfig(filename string) {
     var config Config
 

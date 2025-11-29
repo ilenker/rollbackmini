@@ -133,7 +133,7 @@ func listenToPort(conn *net.UDPConn, inboundInputs, inboundReplies, outboundPack
 			}
 
 		default:
-			avgFrameDiff, frameDiffs = FrameDiffBuffer(int(SIM_FRAME - peerPacket.frameID))
+			avgFrameDiff, frameDiffs = frameDiffBuffer(int(SIM_FRAME - peerPacket.frameID))
 			inboundInputs <-peerPacket
 		}
 

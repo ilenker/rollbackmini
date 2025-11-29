@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"runtime"
-	"github.com/gdamore/tcell/v2"
 )
 
 type cellState = uint8
@@ -15,10 +14,9 @@ type Cell struct {
 	state cellState 
 }
 
-var	_board      = [MapH+1][MapW+1]Cell{}
-var	board       = [(MapH+1) * (MapW+1)]Cell{}
+var	_board = [MapH+1][MapW+1]Cell{}
+var	board  = [(MapH+1) * (MapW+1)]Cell{}
 var SIM_FRAME uint16 = 1
-
 
 func simulate() {
 
@@ -64,15 +62,21 @@ func boardInit() {
 	vfxLayer.gs     = make([]float64, mapSize)
 	vfxLayer.bs     = make([]float64, mapSize)
 
+	lightDecayScalars = make([][]float64, 2)
+	lightDecayScalars[0] = make([]float64, mapSize)
+	lightDecayScalars[1] = make([]float64, mapSize)
+
 	for y := range MapH {
 		for x := range MapW {
-			i := flatIdx(x, y)
+			i := fi(x, y)
 			board[i].state = Empty
 			copyRGB(&vfxLayer, i, β, β, β)
-			copyRGB(&lightVal, i, 1.0, 1.0, 1.0)
+			copyRGB(&lightVal, i, 0.0, 0.0, 0.0)
+			lightDecayScalars[0][i] = 0.95
+			lightDecayScalars[1][i] = 0.01
+			//lightDecayScalars[i] = 0.1
 		}
 	}
-	drawPixelBox(scr, 2, 2, MapW - 1, MapH/2 - 1, tcell.ColorSteelBlue)
 }
 
 
@@ -81,7 +85,7 @@ func cellSet(vec Vec2, newState cellState) {
 	default: 
 		board[vec.y * MapW + vec.x].state = newState
 		r, g, b := cols[newState].RGB()
-		copyRGB(&vfxLayer, flatIdx(vec), float64(r), float64(g), float64(b))
+		copyRGB(&vfxLayer, fiVec2(vec), float64(r), float64(g), float64(b))
 	}
 
 }

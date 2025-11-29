@@ -2,11 +2,14 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"time"
-	"sync"
 	"math"
+	"os"
+	"runtime/pprof"
+	"sync"
+	"time"
 	//"unsafe"
+
+	"github.com/kelindar/simd"
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -25,6 +28,7 @@ var (
 	inputFromPeerCh chan PeerPacket
 	replyFromPeerCh chan PeerPacket
 	packetsToPeerCh chan PeerPacket
+	exitCh			chan struct{}
 
 	player1 Snake
 	player2 Snake
@@ -39,48 +43,73 @@ var (
 
 	_graphZoom float64 = 1
 	s []*Slider
+
 )
 
-func _main() {
-	test()
+// profiling and caching
+var fCPUProfile *os.File
+var fLog        *os.File
+var mode = 0
+var filename string
+var testTimeFrames int
+var profilingMsg string
+const PROFILE	= false
+const CACHE 	= true
+
+
+func init() {
+	testTimeFrames = 3000
+	testIsCached := "F"; if CACHE {testIsCached = "T"}
+	testName     := "Spam"
+
+	filename = fmt.Sprintf("cpu_cache-%s_%04d_%s.prof", testIsCached, testTimeFrames, testName)
+	profilingMsg = fmt.Sprintf("Profiling \"%s\"\n%s\n", testName, filename)
+	angleCache.Store(make(angleMap))
+	gammaCache.Store(make(gammaMap))
 }
 
 
 func main() {
-	lightPoints = make([]Vec2, 10)
-							/*#### INIT ####*/
-	FrameDiffBuffer = makeAverageIntBuffer(20)
+	if CACHE {
+		computeSquareDistances()
+	}
+	switch mode {
+	case 0:
+		startGame()
+	case 1:
+		startLightTestBench()
+	}
+}
+
+
+func startGame() {
+									/* INIT */
+	frameDiffBuffer = makeAverageIntBuffer(20)
+	frameTimeBuffer = makeAverageDurationBuffer(500)
 	player1 = snakeMake(Vec2{(MapW/2) ,  11 + MapH/2}, R, P1Head)
 	player2 = snakeMake(Vec2{(MapW/2) , -12 + MapH/2}, R, P2Head)
 	loadConfig("config.json")
-
 
 	if online {
 		inputFromPeerCh = make(chan PeerPacket, 128)
 		replyFromPeerCh = make(chan PeerPacket, 128)
 		packetsToPeerCh = make(chan PeerPacket,  32)
+		defer close(inputFromPeerCh)
+		defer close(replyFromPeerCh)
+		defer close(packetsToPeerCh)
 		go multiplayer(inputFromPeerCh, replyFromPeerCh, packetsToPeerCh)
 		<-inputFromPeerCh
 	}
 
 	stylesInit()
 	setCOLORTERM()
-	defer restoreCOLORTERM()
 	scr, err = tcell.NewScreen()	;F(err, "")
 	err = scr.Init()				;F(err, "")
+	defer restoreCOLORTERM()
+	defer scr.Fini()
 	scr.EnableMouse()
 
-	s = make([]*Slider, 4)
 	slidersInit(MapW + 28, 2)
-
-	s[0].Value = γ 
-	s[0].Percent = iLerp(int(s[0].Min), int(s[0].Max), γ)
-
-	s[1].Value = ω 
-	s[1].Percent = iLerp(int(s[1].Min), int(s[1].Max), ω)
-
-	s[2].Value = β 
-	s[2].Percent = iLerp(int(s[2].Min), int(s[2].Max), β)
 
 	boardInit()
 	textBoxesInit()
@@ -89,38 +118,38 @@ func main() {
 	rgbOsc := newRGBOscillator(startCol)
 
 	localInputCh := make(chan signal, 8)
+	defer close(localInputCh)
+	defer close(exitCh)
 	go readLocalInputs(localInputCh)
 
 	frameDiffGraph = newBarGraph(MapW + MapY + 4, 21)
 
-	render(scr, MapX, MapY)
-
 	simTick := time.NewTicker(SIM_TIME)
-
-	mainLightTicker := time.NewTicker(time.Second * 3)
-
+	lightUpdateTick := time.NewTicker(SIM_TIME * 1)
+	mainLightTicker := time.NewTicker(time.Second * 2)
 
 	
 /* ············································································· Sync Loop       */
 	if online {
 		x, y := debugBox("Connecting")
+
 		for {
 			<-simTick.C
-
 			x, y = loadingInfo(x, y)
-
 			SIM_FRAME++
 			render(scr, MapX, MapY)
 			if SIM_FRAME > 600 {
 				break
 			}
 		}
+
 		if LOCAL == 1 {
-			// Send Start Signal as player 1
+			// Send start signal as player 1
 			packetsToPeerCh <-PeerPacket{}
 			time.Sleep(time.Duration(
 				float64(avgRTTuSec) / float64(2)) * time.Microsecond)
 		}
+
 		if LOCAL == 2 {
 			// Block here for start signal as player 2
 			<-inputFromPeerCh
@@ -128,26 +157,32 @@ func main() {
 		SIM_FRAME = START_FRAME
 	}
 
+	if PROFILE {
+		fCPUProfile, _ = os.Create(filename)
+		pprof.StartCPUProfile(fCPUProfile)
+		fmt.Println(profilingMsg)
+		time.Sleep(time.Second * 2)
+	}
 
 /* ············································································· Main Loop       */
-	// qwfp
 	for {
-
+		if PROFILE {
+			if SIM_FRAME == uint16(testTimeFrames) {
+				pprof.StopCPUProfile()
+				os.Exit(0)	
+			}
+		}
 		select {
 		case <-mainLightTicker.C:
-			go flash(mainLightArgs.unpack())
+			light(mainLightArgs.unpack())
 		default:
 		}
-
-
-		condLighting.Broadcast()
-
+		//condLighting.Broadcast()
 		simStart := time.Now()
 		<-simTick.C
 
-
-		if !online { goto SkipRollback }
 /* ············································································· Network Inbound */
+		if !online { goto SkipRollback }
 		select {
 		case pPacket := <-inputFromPeerCh:
 			if pPacket.frameID < 5 {
@@ -160,7 +195,6 @@ func main() {
 			pPacket.content[0] == 0 {
 				goto SkipRollback
 			}
-
 /* ·····································································┬·············· Rollback  ·
 ·                                                                       └──Net Out - Hit Confirm */
 			prePos := getPeerPlayerPtr().pos
@@ -180,11 +214,9 @@ func main() {
 			go rollbackStreak(prePos, dist, dir, colorID(col))
 
 		default:
-		// Don't block
 		}
 
 		SkipRollback:
-
 /* ································································┬···········Stage Local Input  ·
 ·                                                                  └──Net Out - Send Local Input */
 		drainLocalInputCh(localInputCh)
@@ -221,10 +253,10 @@ func main() {
 		drawPixelBox(scr, 2, 2, MapW - 1, MapH/2 - 1, rgbOsc())
 
 		scoreBox(fmt.Sprintf("[%02d]:[%02d]", localScore, peerScore), 0, 0)
-		setColor(13,1, cols[getLocalPlayerPtr().stateID])
 		setColor(14,1, cols[getLocalPlayerPtr().stateID])
-		setColor(18,1, cols[getPeerPlayerPtr().stateID])
+		setColor(15,1, cols[getLocalPlayerPtr().stateID])
 		setColor(19,1, cols[getPeerPlayerPtr().stateID])
+		setColor(20,1, cols[getPeerPlayerPtr().stateID])
 
 		frameBox(fmt.Sprintf(" [%05d] ", SIM_FRAME), 0, 0)
 
@@ -239,18 +271,22 @@ func main() {
 
 		}
 
-		//eB(fmt.Sprintf("tc.col:%d", unsafe.Sizeof(tcell.ColorBlack)), 0, 0)
-		//(fmt.Sprintf("vecRGB:%d", unsafe.Sizeof(VecRGB{})), 0, 1)
-		//(fmt.Sprintf("board :%d", unsafe.Sizeof(board)), 0, 2)
-		//(fmt.Sprintf("vfxLay:%d", unsafe.Sizeof(vfxLayer)), 0, 3)
-		//(fmt.Sprintf("ligLay:%d", unsafe.Sizeof(lightLayer)), 0, 4)
-		sliders()
+		slidersDraw()
 
 		γ = s[0].Value
 		ω = s[1].Value
 		
+		select {
+		case <-lightUpdateTick.C:
+			simd.MulFloat64s(lightVal.rs, lightVal.rs, lightDecayScalars[0])
+			simd.MulFloat64s(lightVal.gs, lightVal.gs, lightDecayScalars[0])
+			simd.MulFloat64s(lightVal.bs, lightVal.bs, lightDecayScalars[0])
+		default:
+		}
+
 		render(scr, MapX, MapY)
 
+		avgFrameTime, _ = frameTimeBuffer(time.Since(simStart))
 		SIM_FRAME++
 	}
 
@@ -311,8 +347,9 @@ func readLocalInputs(inputCh chan signal) {
 		if key, ok := ev.(*tcell.EventKey); ok {
 
 			if key.Key() == tcell.KeyESC {
-				scr.Fini()
-				os.Exit(0)
+				//pprof.WriteHeapProfile(f)
+				pprof.StopCPUProfile()
+				os.Exit(0)	
 			} 
 
 			// Special Keys
@@ -442,22 +479,3 @@ func raycast(p1 Vec2, dir float64) {
 	}
 }
 
-func angleBetween(a, b Vec2) float64 {
-	ax := float64(a.x)
-	ay := float64(a.y)
-	bx := float64(b.x)
-	by := float64(b.y)
-
-	dot := ax * bx + ay * by
-	mag := math.Hypot(ax, ay) * math.Hypot(bx, by)
-
-	if mag == 0 {
-		return 0
-	}
-	return math.Acos(dot / mag) // radians
-}
-
-func angleTo(a, b Vec2) float64 {
-	d := Vec2{b.x - a.x, b.y - a.y}
-	return math.Atan2(float64(d.y), float64(d.x)) // radians, from -π to +π
-}

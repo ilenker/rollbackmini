@@ -2,12 +2,15 @@ package main
 
 import (
 	"fmt"
+	"time"
 )
 
 
 var rollbackBuffer RollbackBuffer
-var FrameDiffBuffer func(int) (float64, []int)
+var frameDiffBuffer func(int) (float64, []int)
+var frameTimeBuffer func(time.Duration) (int64, []time.Duration)
 var avgFrameDiff float64
+var avgFrameTime int64
 var frameDiffs []int
 
 type HitConfirm	struct {

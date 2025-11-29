@@ -20,12 +20,9 @@ var textCol = tcell.ColorSlateGray
 var renderBuffer	Slice3f64
 var vfxLayer 		Slice3f64
 var lightVal 		Slice3f64
+var lightDecayScalars [][]float64
 //var	lightLayer	= [MapH+1][MapW+1]Vec3[float32]{}
 
-var dimmingFactor []float64
-
-var lightPoints []Vec2
-var lpID int
 
 const (
 	EmptyC colorID = iota
@@ -86,50 +83,59 @@ var hitCols = map[cellState][]colorID{
 
 func render(s tcell.Screen, xOffset, yOffset int) {
 
+
+	lightVal.rs[ fiVec2(getLocalPlayerPtr().pos) ] = 1.0
+
+	// Load up the output buffer
+	simd.MulFloat64s(renderBuffer.rs, vfxLayer.rs, lightVal.rs)
+	simd.MulFloat64s(renderBuffer.gs, vfxLayer.gs, lightVal.gs)
+	simd.MulFloat64s(renderBuffer.bs, vfxLayer.bs, lightVal.bs)
+
 	if shadows {
-		lPoint := Vec2{MapW / 2, MapH / 2}
-		dir := angleTo(lPoint, player2.pos)
+		dir := angleTo(MAIN_LIGHT_POS, player2.pos)
 		p2 := player2.pos.translate(dir, 50)
 		p1 := player2.pos.translate(dir, 1)
 		f := 0.0
+		x := math.Round(lerp(p1.x, p2.x, f))
+		y := math.Round(lerp(p1.y, p2.y, f))
+		i := fi(int(x), int(y))
 
 		for {
 			if f > 1 { break }
-
-			x := math.Round(lerp(p1.x, p2.x, f))
-			y := math.Round(lerp(p1.y, p2.y, f))
+			x = math.Round(lerp(p1.x, p2.x, f))
+			y = math.Round(lerp(p1.y, p2.y, f))
 
 			if x > MapW || x < 0 { break }
 			if y > MapH || y < 0 { break }
 
-			i := flatIdx(int(x), int(y))
-			copyRGB(&lightVal, i, 0.1, 0.1, 0.1)
+			i = fi(int(x), int(y))
+			renderBuffer.rs[i] = 0 
+			renderBuffer.gs[i] = 0 
+			renderBuffer.bs[i] = 0 
 			f += 0.010
 		}
 
-		dir = angleTo(lPoint, player1.pos)
+		dir = angleTo(MAIN_LIGHT_POS, player1.pos)
 		p2 = player1.pos.translate(dir, 50)
 		p1 = player1.pos.translate(dir, 1)
 		f = 0.0
 
 		for {
 			if f > 1 { break }
-
-			x := math.Round(lerp(p1.x, p2.x, f))
-			y := math.Round(lerp(p1.y, p2.y, f))
+			x = math.Round(float64(p1.x) * (1.0-f) + float64(p2.x) * f)
+			y = math.Round(float64(p1.y) * (1.0-f) + float64(p2.y) * f)
 
 			if x > MapW || x < 0 { break }
 			if y > MapH || y < 0 { break }
 
-			i := flatIdx(int(x), int(y))
-			copyRGB(&lightVal, i, 0.15, 0.15, 0.15)
+			i = fi(int(x), int(y))
+			renderBuffer.rs[i] = 0 
+			renderBuffer.gs[i] = 0 
+			renderBuffer.bs[i] = 0 
 			f += 0.010
 		}
 	}
 
-	lightVal.rs[ flatIdx(getLocalPlayerPtr().pos) ] = 2
-
-	calculateLighting()
 	// For each terminal row (board y-coordinates map 2:1 onto terminal y-coordinates)
 	for y := range (MapH / 2) {
 		lyUpper := y * 2           // Calculate corresponding Logical Row, given Terminal Row
@@ -142,52 +148,26 @@ func render(s tcell.Screen, xOffset, yOffset int) {
 
 			//newR := 255.0 * math.Pow((renderBuffer.rs[iU] / 255), γ)
 
-			newR :=
-			math.Pow(
-				math.Max(renderBuffer.rs[iU] - β, 0) / (ω - β),
-				γ) * 255
-
-			newG :=
-			math.Pow(
-				math.Max(renderBuffer.gs[iU] - β, 0) / (ω - β),
-				γ) * 255
-
-			newB :=
-			math.Pow(
-				math.Max(renderBuffer.bs[iU] - β, 0) / (ω - β),
-				γ) * 255
-
-
+			// Gamma correction
+			//newR := gammaCorrection(renderBuffer.rs[iU])
+			//newG := gammaCorrection(renderBuffer.gs[iU])
+			//newB := gammaCorrection(renderBuffer.bs[iU])
+   
 			//newG := int32(float64(255) * math.Pow((renderBuffer.gs[iU] / 255), γ) )
 			//newB := int32(float64(255) * math.Pow((renderBuffer.bs[iU] / 255), γ) )
 			upper := tcell.NewRGBColor(
-				int32(newR),
-				int32(newG),
-				int32(newB))
+				int32(gamma06(renderBuffer.rs[iU] )),
+				int32(gamma06(renderBuffer.gs[iU] )),
+				int32(gamma06(renderBuffer.bs[iU] )))
 
-			newR =
-			math.Pow(
-				math.Max(renderBuffer.rs[iL] - β, 0) / (ω - β),
-				γ) * 255
+			//newR = gammaCorrection(renderBuffer.rs[iL])
+			//newG = gammaCorrection(renderBuffer.gs[iL])
+			//newB = gammaCorrection(renderBuffer.bs[iL])
 
-			newG =
-			math.Pow(
-				math.Max(renderBuffer.gs[iL] - β, 0) / (ω - β),
-				γ) * 255
-
-			newB =
-			math.Pow(
-				math.Max(renderBuffer.bs[iL] - β, 0) / (ω - β),
-				γ) * 255
-
-			//newR = int32(float64(255) * math.Pow((renderBuffer.rs[iL] / 255), γ) )
-			//newG = int32(float64(255) * math.Pow((renderBuffer.gs[iL] / 255), γ) )
-			//newB = int32(float64(255) * math.Pow((renderBuffer.bs[iL] / 255), γ) )
-			//lower := tcell.NewRGBColor(clamp(newR, 0, 255), clamp(newG, 0, 255), clamp(newB, 0, 255))
 			lower := tcell.NewRGBColor(
-				int32(newR),
-				int32(newG),
-				int32(newB))
+				int32(gamma06(renderBuffer.rs[iL])),
+				int32(gamma06(renderBuffer.gs[iL])),
+				int32(gamma06(renderBuffer.bs[iL])))
 
 			//upper = scaleColor(upper, Vec3[float32]{
 			//	lightRs[iU],
@@ -201,14 +181,16 @@ func render(s tcell.Screen, xOffset, yOffset int) {
 			//	lightRs[iL] * 0.8,
 			//})
 
-			lightDecay := 0.95
-			lightVal.rs[iU] = clampMin(lightVal.rs[iU] * lightDecay, 0.1)
-			lightVal.gs[iU] = clampMin(lightVal.gs[iU] * lightDecay, 0.1)
-			lightVal.bs[iU] = clampMin(lightVal.bs[iU] * lightDecay, 0.1)
+			//if !shadows {
+			//	lightDecayScalars := 0.96
+			//	lightVal.rs[iU] = clampMin(lightVal.rs[iU] * lightDecay, 0.0)
+			//	lightVal.gs[iU] = clampMin(lightVal.gs[iU] * lightDecay, 0.0)
+			//	lightVal.bs[iU] = clampMin(lightVal.bs[iU] * lightDecay, 0.0)
 
-			lightVal.rs[iL] = clampMin(lightVal.rs[iL] * lightDecay, 0.1)
-			lightVal.gs[iL] = clampMin(lightVal.gs[iL] * lightDecay, 0.1)
-			lightVal.bs[iL] = clampMin(lightVal.bs[iL] * lightDecay, 0.1)
+			//	lightVal.rs[iL] = clampMin(lightVal.rs[iL] * lightDecay, 0.0)
+			//	lightVal.gs[iL] = clampMin(lightVal.gs[iL] * lightDecay, 0.0)
+			//	lightVal.bs[iL] = clampMin(lightVal.bs[iL] * lightDecay, 0.0)
+			//}
 
 			//lightLayer[lyUpper][x].x = clamp(lightLayer[lyUpper][x].x * 0.90, 0.02, 10)
 			//lightLayer[lyUpper][x].y = clamp(lightLayer[lyUpper][x].y * 0.90, 0.02, 10) 
@@ -218,22 +200,16 @@ func render(s tcell.Screen, xOffset, yOffset int) {
 			//lightLayer[lyLower][x].y = clamp(lightLayer[lyLower][x].y * 0.90, 0.02, 10) 
 			//lightLayer[lyLower][x].z = clamp(lightLayer[lyLower][x].z * 0.90, 0.10, 10) 
 
-
 			r := '▀'
 			st := tcell.StyleDefault.Foreground(upper).Background(lower)
-
 			s.SetContent(x + xOffset, y + yOffset, r, nil, st)
-
 		}
 	}
-
 	s.Show()
-}
 
-func calculateLighting() {
-	simd.MulFloat64s(renderBuffer.rs, vfxLayer.rs, lightVal.rs)
-	simd.MulFloat64s(renderBuffer.gs, vfxLayer.gs, lightVal.gs)
-	simd.MulFloat64s(renderBuffer.bs, vfxLayer.bs, lightVal.bs)
+	//simd.SubFloat64s(lightVal.rs, lightVal.rs, lightDecayScalars)
+	//simd.SubFloat64s(lightVal.gs, lightVal.gs, lightDecayScalars)
+	//simd.SubFloat64s(lightVal.bs, lightVal.bs, lightDecayScalars)
 }
 
 
@@ -455,7 +431,7 @@ func hitEffectCrit(start Vec2, baseturns float64, colorSeq []colorID) {
 	time.Sleep(SIM_TIME)
 
 	animate(colorSeq[2], start, 0, 15, true , true)
-	go flash(start, size/4, lum, linger, Vec3[float64]{1, 1, 1}, false)
+	light(start, size/4, lum, Vec3[float64]{1, 1, 1})
 
 	animate(colorSeq[3], start, 1, 20, false, true)
 	animate(EmptyC,      start, 1, 10, false, false)
@@ -553,17 +529,17 @@ func rollbackStreak(start Vec2, dist int, dir Vec2, colID colorID) {
 func cooldownBar(origin Vec2, length int, colorID colorID) {
 
 	if length == 0 {
-		copyRGB(&vfxLayer, flatIdx(origin), 0.0, 0.0, 0.0)
+		copyRGB(&vfxLayer, fiVec2(origin), 0.0, 0.0, 0.0)
 	}
 
 	for i := range length {
 		//vfxLayer[origin.y][origin.x + i + 1] = cols[EmptyC]
-		copyRGB(&vfxLayer, flatIdx(origin.x + i + 1, origin.y), 0.0, 0.0, 0.0)
+		copyRGB(&vfxLayer, fi(origin.x + i + 1, origin.y), 0.0, 0.0, 0.0)
 
 		//vfxLayer[origin.y][origin.x + i    ] = cols[colorID]
 		r, g, b := cols[colorID].RGB()
 		copyRGB(&vfxLayer,
-			flatIdx(origin.x + i, origin.y),
+			fi(origin.x + i, origin.y),
 			float64(r),
 			float64(g),
 			float64(b))
@@ -602,125 +578,75 @@ func restoreCOLORTERM() {
 }
 
 
-// position, radius, luminance, color
-func _light(lightR float64, p, p2 Vec2, r int, lum float64, c Vec3[float64]) float64 {
-
-	x := p2.x
-	y := p2.y
-
-	minL := float64(1.0)
-
-	dMax := r + 1
-
-	//errorBox(fmt.Sprintf("dMaxL: %d", dMax), 0, 1)
-
-
-	d := dist(p, Vec2{x, y})
-
-	if d > float64(dMax) {
-		return 1
-	}
-
-	dNormal := iLerp64(0, dMax, d * d * FOFactor)
-
-	if dNormal > 1 { return 1.0 }
-
-	rLum := lerp64(lum, minL, dNormal) * c.x
-
-
-	//kv := Vec3[float32]{v.x * rL, v.y * gL, v.z * bL}
-	kMax := 15.0
-	kLightR := clamp(lightR * rLum, 0, kMax)
-
-	//if kv.y < 1 { kv.y = 1}
-	//if kv.z < 1 { kv.z = 1}
-
-	return kLightR
-}
 
 func light(p Vec2, r int, lum float64, c Vec3[float64]) {
-
-	lum /= 10
-
-	minL := float64(1.0)
-
-	dMax := r + 1
-
-	//errorBox(fmt.Sprintf("dMaxL: %d", dMax), 0, 1)
+	dMax := float64((r + 1) * (r + 1))
 
 	for x := p.x - r;
-		x <= p.x + r;
-		x++ {
-
+		x <= p.x + r; x++ {
 		if x > MapW || x < 0 { continue }
 
 		for y := p.y - r;
-			y <= p.y + r;
-			y++ {
-			i := flatIdx(x, y)
+			y <= p.y + r; y++ {
 
 			if y > MapH || y < 0 { continue }
 
-			d := dist(p, Vec2{x, y})
+			i := fi(x, y)
 
-			dNormal := iLerp64(0, dMax, d * d * FOFactor)
+			d := squareDist(p, Vec2{x, y})  // 0 - 512+
 
-			if dNormal > 1 { continue }
-			
-			rLum := lerp64(lum, minL, dNormal) * c.x
-			gLum := lerp64(lum, minL, dNormal) * c.y
-			bLum := lerp64(lum, minL, dNormal) * c.z
+			dNormal := iLerp64(0, dMax, d)  // 0.0 - 1.0
 
+			if dNormal > 1 {
+				continue
+			}
+			if dNormal > 1 {
+				dNormal = 1
+			}
+
+			dNormal = 1 - (1-dNormal)*(1-dNormal)
+			//rLum := lerp64(minL, lum, dNormal)
+			//gLum := lerp64(minL, lum, dNormal)
+			//bLum := lerp64(minL, lum, dNormal)
+			rLum := lerp64(lum, 0.0, dNormal) * c.x
+			gLum := lerp64(lum, 0.0, dNormal) * c.y
+			bLum := lerp64(lum, 0.0, dNormal) * c.z
+
+			// What the lum is currently 
 			lightR := lightVal.rs[i]
 			lightG := lightVal.gs[i]
 			lightB := lightVal.bs[i]
 
 
-			//kv := Vec3[float32]{v.x * rL, v.y * gL, v.z * bL}
-			kMax := 5.0
-			rLum = clamp( (rLum + lightR) / 2, 1, kMax)
-			gLum = clamp( (gLum + lightG) / 2, 1, kMax)
-			bLum = clamp( (bLum + lightB) / 2, 1, kMax)
+			//// Calculate new lum value
+			//kMax := 5000000000.0
+			//rLum = clamp( (rLum + lightR) * 0.5, 1, kMax)
+			//gLum = clamp( (gLum + lightG) * 0.5, 1, kMax)
+			//bLum = clamp( (bLum + lightB) * 0.5, 1, kMax)
 
-			//if kv.y < 1 { kv.y = 1}
-			//if kv.z < 1 { kv.z = 1}
+			if rLum < lightR { rLum = lightR }
+			if gLum < lightG { gLum = lightG }
+			if bLum < lightB { bLum = lightB }
 
-			if k := vfxLayer.rs[i] * rLum;
-			k > 253 { rLum *= 255/k }
+			//gLum = math.Max(gLum, lightG)
+			//bLum = math.Max(bLum, lightB)
 
-			if k := vfxLayer.gs[i] * gLum;
-			k > 253 { gLum *= 255/k }
-
-			if k := vfxLayer.bs[i] * bLum;
-			k > 253 { bLum *= 255/k }
-
+			//if k := vfxLayer.rs[i] * rLum; k > 254 {
+			//	rLum *= 254/k
+			//}
+			//if k := vfxLayer.gs[i] * gLum; k > 254 {
+			//	gLum *= 254/k
+			//}
+			//if k := vfxLayer.bs[i] * bLum; k > 254 {
+			//	bLum *= 254/k
+			//}
 
 			lightVal.rs[i] = rLum
 			lightVal.gs[i] = gLum
 			lightVal.bs[i] = bLum
+
 		}
 	}
 }
 
 
-func flash(p Vec2, r int, lum float64, decayRate float64, c Vec3[float64], castShadow bool) {
-
-	mu.Lock()
-
-	if castShadow {
-		shadows = true
-		defer func(){
-			shadows = false
-		} ()
-	}
-
-	for {
-		condLighting.Wait()
-		light(p, r, lum, c)
-		if lum <= 1 {
-			mu.Unlock()
-			return
-		}
-		lum -= lum * decayRate
-	}
-}
