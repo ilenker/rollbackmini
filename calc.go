@@ -8,7 +8,8 @@ import (
 	"unsafe"
 )
 
-var squaredDistances [64*64*64*64]float64
+const arraySize = 64*64*64*64
+var squaredDistances [arraySize]float64
 const wordSize = 6
 
 type angleMap map[[4]int]float64

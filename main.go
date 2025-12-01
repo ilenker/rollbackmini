@@ -9,8 +9,9 @@ import (
 	"time"
 	//"unsafe"
 
-	"github.com/kelindar/simd"
-	"github.com/gdamore/tcell/v2"
+	//"github.com/kelindar/simd"
+	//"github.com/klauspost/cpuid/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 // Globals
@@ -43,7 +44,7 @@ var (
 
 	_graphZoom float64 = 1
 	s []*Slider
-
+	frameLog[]struct{uint16; time.Duration}
 )
 
 // profiling and caching
@@ -58,14 +59,15 @@ const CACHE 	= true
 
 
 func init() {
-	testTimeFrames = 3000
+	testTimeFrames = 1000 
 	testIsCached := "F"; if CACHE {testIsCached = "T"}
-	testName     := "Spam"
+	testName     := ""
 
 	filename = fmt.Sprintf("cpu_cache-%s_%04d_%s.prof", testIsCached, testTimeFrames, testName)
 	profilingMsg = fmt.Sprintf("Profiling \"%s\"\n%s\n", testName, filename)
 	angleCache.Store(make(angleMap))
 	gammaCache.Store(make(gammaMap))
+	fLog, _ = os.Create("frameLog.csv")
 }
 
 
@@ -278,14 +280,19 @@ func startGame() {
 		
 		select {
 		case <-lightUpdateTick.C:
-			simd.MulFloat64s(lightVal.rs, lightVal.rs, lightDecayScalars[0])
-			simd.MulFloat64s(lightVal.gs, lightVal.gs, lightDecayScalars[0])
-			simd.MulFloat64s(lightVal.bs, lightVal.bs, lightDecayScalars[0])
+			for i := range MapW * MapH {
+				lightVal.rs[i] = 0.9 * lightVal.rs[i]
+				lightVal.gs[i] = 0.9 * lightVal.gs[i]
+				lightVal.bs[i] = 0.9 * lightVal.bs[i]
+			}
+			//simd.MulFloat64s(lightVal.rs, lightVal.rs, lightDecayScalars[0])
+			//simd.MulFloat64s(lightVal.gs, lightVal.gs, lightDecayScalars[0])
+			//simd.MulFloat64s(lightVal.bs, lightVal.bs, lightDecayScalars[0])
 		default:
 		}
 
 		render(scr, MapX, MapY)
-
+		frameLog = append(frameLog, struct{uint16; time.Duration}{SIM_FRAME, time.Since(simStart)})
 		avgFrameTime, _ = frameTimeBuffer(time.Since(simStart))
 		SIM_FRAME++
 	}
@@ -297,7 +304,7 @@ func Break() {
 	
 	BREAK = true
 	for {
-		ev := scr.PollEvent()
+		ev := <-scr.EventQ()
 		if key, ok := ev.(*tcell.EventKey); ok {
 
 			if key.Key() == tcell.KeyESC {
@@ -306,7 +313,7 @@ func Break() {
 			} 
 
 			// Keymap
-			switch key.Rune() {
+			switch key.Str()[0] {
 
 			case 'p':
 				BREAK = false
@@ -332,11 +339,12 @@ func Break() {
 
 // Collect all (local) input and send down a single channel
 func readLocalInputs(inputCh chan signal) {
+	eventQ := scr.EventQ()
 	for {
 		//if SIM_FRAME < START_FRAME + RB_BUFFER_LEN * 3 {
 		//	continue
 		//}
-		ev := scr.PollEvent()
+		ev := <-eventQ
 
 		if mev, ok := ev.(*tcell.EventMouse); ok {
 			for _, slider := range s {
@@ -345,10 +353,12 @@ func readLocalInputs(inputCh chan signal) {
 		}
 
 		if key, ok := ev.(*tcell.EventKey); ok {
-
 			if key.Key() == tcell.KeyESC {
 				//pprof.WriteHeapProfile(f)
 				pprof.StopCPUProfile()
+				for _, line := range frameLog {
+					fmt.Fprintf(fLog, "%d,%v\n", line.Duration, line.uint16)
+				}
 				os.Exit(0)	
 			} 
 
@@ -362,7 +372,7 @@ func readLocalInputs(inputCh chan signal) {
 			}
 
 			// Keymap
-			switch key.Rune() {
+			switch key.Str()[0] {
 			case 'p':
 				for range 6 { go hitEffectCrit(player1.pos, 1.5, hitCols[player2.stateID]) }
 

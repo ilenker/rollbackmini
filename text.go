@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"strconv"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
+	"unicode/utf8"
 )
 
 type textBox func(msg string, args ...int) (int, int)
@@ -343,8 +344,8 @@ func newBarGraph(x, y int) func(int) {
 			if n > height {
 				n = wrapInt(n - 1, height)
 
-				_, _, b, _ := scr.GetContent(counter, (y + height) - n)
-				bg, _, _ := b.Decompose()
+				_, b, _ := scr.Get(counter, (y + height) - n)
+				bg, _, _ := Decompose(b)
 				col = col.Background(bg)
 			}
 
@@ -368,8 +369,8 @@ func newBarGraph(x, y int) func(int) {
 				}
 
 				lookahead := _c + 1 + j
-				r, _, st, _ := scr.GetContent(lookahead, (y + height) - i)
-				fg, bg, _ := st.Decompose()
+				s, st, _  := scr.Get(lookahead, (y + height) - i)
+				fg, bg, _ := Decompose(st)
 
 				if fg != tcell.ColorDefault {
 					fg = addRBGtoColor(VecRGB{int32(f), int32(f), int32(f)}, fg)
@@ -377,6 +378,7 @@ func newBarGraph(x, y int) func(int) {
 				if bg != tcell.ColorDefault {
 					bg = addRBGtoColor(VecRGB{int32(f), int32(f), int32(f)}, bg)
 				}
+				r, _ := utf8.DecodeRuneInString(s)
 				scr.SetContent(
 					lookahead,
 					(y + height) - i,
@@ -505,6 +507,7 @@ func intSeps(n int) string {
 
 
 func setColor(x, y int, color tcell.Color) {
-	r, _, _, _ := scr.GetContent(x, y)
+	s, _, _ := scr.Get(x, y)
+	r, _ := utf8.DecodeRuneInString(s)
 	scr.SetContent(x, y, r, nil, tcell.StyleDefault.Foreground(color))
 }

@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 
 )
 
@@ -161,7 +161,7 @@ func startLightTestBench() {
 			'△', nil,
 			tcell.StyleDefault.Foreground(tcell.ColorOrange))
 
-		ev := scr.PollEvent()
+		ev := <-scr.EventQ()
 		switch tev := ev.(type) {
 		case *tcell.EventKey:
 			if tev.Key() == tcell.KeyEscape || tev.Key() == tcell.KeyCtrlC {

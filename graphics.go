@@ -6,8 +6,8 @@ import (
 	"time"
 	"math"
 	"math/rand"
-	"github.com/gdamore/tcell/v2"
-	"github.com/kelindar/simd"
+	"github.com/gdamore/tcell/v3"
+	//"github.com/kelindar/simd"
 )
 
 type colorID = uint8
@@ -87,9 +87,14 @@ func render(s tcell.Screen, xOffset, yOffset int) {
 	lightVal.rs[ fiVec2(getLocalPlayerPtr().pos) ] = 1.0
 
 	// Load up the output buffer
-	simd.MulFloat64s(renderBuffer.rs, vfxLayer.rs, lightVal.rs)
-	simd.MulFloat64s(renderBuffer.gs, vfxLayer.gs, lightVal.gs)
-	simd.MulFloat64s(renderBuffer.bs, vfxLayer.bs, lightVal.bs)
+	//simd.MulFloat64s(renderBuffer.rs, vfxLayer.rs, lightVal.rs)
+	//simd.MulFloat64s(renderBuffer.gs, vfxLayer.gs, lightVal.gs)
+	//simd.MulFloat64s(renderBuffer.bs, vfxLayer.bs, lightVal.bs)
+	for i := range MapW * MapH {
+		renderBuffer.rs[i] = vfxLayer.rs[i] * lightVal.rs[i]
+		renderBuffer.gs[i] = vfxLayer.gs[i] * lightVal.gs[i]
+		renderBuffer.bs[i] = vfxLayer.bs[i] * lightVal.bs[i]
+	}
 
 	if shadows {
 		dir := angleTo(MAIN_LIGHT_POS, player2.pos)
